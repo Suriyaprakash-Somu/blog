@@ -43,4 +43,18 @@ export async function registerPlatformRoutes(app: FastifyInstance) {
     basePrefix: ROUTE_PREFIXES.platform,
     label: "platform.analytics",
   });
+
+  const { platformBlogCategoriesRoutes } = await import("../modules/blogCategories/platform/index.js");
+  await registerWithPrefix(app, platformBlogCategoriesRoutes, {
+    prefix: PLATFORM_ROUTES.blogCategories,
+    basePrefix: ROUTE_PREFIXES.platform,
+    label: "platform.blogCategories",
+  });
+
+  const { platformBlogTagsRoutes } = await import("../modules/blogTags/platform/index.js");
+  await registerWithPrefix(app, platformBlogTagsRoutes, {
+    prefix: PLATFORM_ROUTES.blogTags,
+    basePrefix: ROUTE_PREFIXES.platform,
+    label: "platform.blogTags",
+  });
 }

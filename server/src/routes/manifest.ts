@@ -20,6 +20,8 @@ export const PLATFORM_ROUTES = {
   users: "/api/platform/users",
   banners: "/api/platform/banners",
   analytics: "/api/platform/analytics",
+  blogCategories: "/api/platform/blog-categories",
+  blogTags: "/api/platform/blog-tags",
 } as const;
 
 export const TENANT_ROUTES = {

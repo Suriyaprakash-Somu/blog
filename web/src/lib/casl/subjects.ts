@@ -18,6 +18,7 @@ export const Subjects = {
   TENANT: "Tenant",
   BANNER: "Banner",
   ANALYTICS: "Analytics",
+  BLOG_CATEGORY: "BlogCategory",
 } as const;
 
 export type AppAction = (typeof Actions)[keyof typeof Actions];

@@ -181,6 +181,48 @@ export const MODULE_POLICIES: ModulePolicy[] = [
   },
 
   {
+    moduleKey: "platform.blogCategories",
+    scope: "platform",
+    subject: SUBJECTS.BLOG_CATEGORY,
+    routeBase: "/platform/blog-categories",
+    navigation: {
+      title: "Blog Categories",
+      path: "/platform/blog-categories",
+      iconKey: "folder",
+      section: "System",
+      order: 10,
+      visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.BLOG_CATEGORY },
+    },
+    crud: {
+      key: "platformBlogCategories",
+      mode: "platform",
+      tenantScope: false,
+      operations: crudFull(SUBJECTS.BLOG_CATEGORY),
+    },
+  },
+
+  {
+    moduleKey: "platform.blogTags",
+    scope: "platform",
+    subject: SUBJECTS.BLOG_TAG,
+    routeBase: "/platform/blog-tags",
+    navigation: {
+      title: "Blog Tags",
+      path: "/platform/blog-tags",
+      iconKey: "tag",
+      section: "System",
+      order: 11,
+      visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.BLOG_TAG },
+    },
+    crud: {
+      key: "platformBlogTags",
+      mode: "platform",
+      tenantScope: false,
+      operations: crudFull(SUBJECTS.BLOG_TAG),
+    },
+  },
+
+  {
     moduleKey: "tenant.dashboard",
     scope: "tenant",
     subject: SUBJECTS.ORGANIZATION,

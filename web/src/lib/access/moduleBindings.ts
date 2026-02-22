@@ -44,6 +44,18 @@ export const MODULE_BINDINGS: Record<string, ModuleBinding> = {
     routeBase: "/platform/analytics",
     subject: Subjects.ANALYTICS,
   },
+  "platform.blogCategories": {
+    moduleKey: "platform.blogCategories",
+    scope: "platform",
+    routeBase: "/platform/blog-categories",
+    subject: "BlogCategory" as AppSubject,
+  },
+  "platform.blogTags": {
+    moduleKey: "platform.blogTags",
+    scope: "platform",
+    routeBase: "/platform/blog-tags",
+    subject: "BlogTag" as AppSubject,
+  },
   "tenant.users": {
     moduleKey: "tenant.users",
     scope: "tenant",

@@ -31,3 +31,9 @@ export * from "../../modules/banners/banners.schema.js";
 
 // Analytics
 export * from "../../modules/analytics/analytics.schema.js";
+
+// Blog Categories
+export * from "../../modules/blogCategories/blogCategories.schema.js";
+
+// Blog Tags
+export * from "../../modules/blogTags/blogTags.schema.js";

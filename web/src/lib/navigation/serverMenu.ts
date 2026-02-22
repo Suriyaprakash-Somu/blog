@@ -6,6 +6,7 @@ import {
   ClipboardList,
   DollarSign,
   FileText,
+  Folder,
   GitMerge,
   Heart,
   Layers,
@@ -19,6 +20,7 @@ import {
   Stethoscope,
   StickyNote,
   Syringe,
+  Tag,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -32,6 +34,7 @@ const ICONS: Record<string, LucideIcon> = {
   "clipboard-list": ClipboardList,
   "dollar-sign": DollarSign,
   "file-text": FileText,
+  folder: Folder,
   "git-merge": GitMerge,
   heart: Heart,
   layers: Layers,
@@ -45,6 +48,7 @@ const ICONS: Record<string, LucideIcon> = {
   stethoscope: Stethoscope,
   "sticky-note": StickyNote,
   syringe: Syringe,
+  tag: Tag,
   "trending-up": TrendingUp,
   users: Users,
 };
