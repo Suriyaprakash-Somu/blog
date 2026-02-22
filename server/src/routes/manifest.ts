@@ -1,0 +1,30 @@
+export const ROUTE_PREFIXES = {
+  auth: "/api/auth",
+  authPlatform: "/api/auth/platform",
+  authTenant: "/api/auth/tenant",
+  platform: "/api/platform",
+  tenant: "/api/tenant",
+  public: "/api/public",
+  uploads: "/api/uploads",
+} as const;
+
+export const PUBLIC_ROUTES = {
+  analytics: "/api/public/analytics",
+  banners: "/api/public/banners",
+  uploads: "/api/public/uploads",
+} as const;
+
+export const PLATFORM_ROUTES = {
+  tenants: "/api/platform/tenants",
+  auditLogs: "/api/platform/audit-logs",
+  users: "/api/platform/users",
+  banners: "/api/platform/banners",
+  analytics: "/api/platform/analytics",
+} as const;
+
+export const TENANT_ROUTES = {
+  banners: "/api/tenant/banners",
+  analytics: "/api/tenant/analytics",
+  branches: "/api/tenant/branches",
+  users: "/api/tenant/users",
+} as const;

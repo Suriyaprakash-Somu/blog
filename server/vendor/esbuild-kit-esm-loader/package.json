@@ -1,0 +1,10 @@
+{
+  "name": "@esbuild-kit/esm-loader",
+  "version": "2.6.5",
+  "private": true,
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  }
+}

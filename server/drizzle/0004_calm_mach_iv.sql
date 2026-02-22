@@ -1,0 +1,27 @@
+DROP TABLE "species" CASCADE;--> statement-breakpoint
+DROP TABLE "breeds" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_animal_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_animals" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_group_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_groups" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_tag_sequences" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_vaccination_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_weight_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_movement_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_treatment_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_treatment_medications" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_health_record_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_breeding_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_birth_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_sale_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_death_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_note_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_medications" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_group_birth_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_group_death_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_group_health_record_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_group_movement_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_group_note_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_group_sale_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_group_treatment_events" CASCADE;--> statement-breakpoint
+DROP TABLE "livestock_group_vaccination_events" CASCADE;

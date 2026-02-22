@@ -1,0 +1,5 @@
+ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "audit_logs_tenant_idx" ON "audit_logs" USING btree ("tenant_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "livestock_vaccination_events_tenant_animal_vaccine_event_unique" ON "livestock_vaccination_events" USING btree ("tenant_id","animal_id","vaccine_name","event_date");--> statement-breakpoint
+CREATE UNIQUE INDEX "group_vaccination_events_tenant_group_vaccine_event_unique" ON "livestock_group_vaccination_events" USING btree ("tenant_id","group_id","vaccine_name","event_date");--> statement-breakpoint
+ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_tenant_required_for_user_actor" CHECK (("audit_logs"."actor_type" <> 'user') OR ("audit_logs"."tenant_id" IS NOT NULL));
