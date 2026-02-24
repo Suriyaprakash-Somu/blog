@@ -1,12 +1,15 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { SchemaForm } from "@/components/form/SchemaForm";
 import { type FormInstance } from "@/components/form/types";
 import { useApiMutation } from "@/hooks/useApiMutation";
 import { platformBlogTagsApi } from "@/lib/api/platform-blog-tags";
+import { clientFetch } from "@/lib/client-fetch";
+import { Button } from "@/components/ui/button";
+import { Loader2, Sparkles } from "lucide-react";
 import type { OperationComponentProps } from "@/components/dataTable/types";
 import type { PlatformBlogTag } from "./types";
 
@@ -65,12 +68,21 @@ const tagFormSchema = z.object({
 
 type TagFormData = z.infer<typeof tagFormSchema>;
 
+interface GeneratedData {
+  slug: string;
+  description: string;
+  metaTitle: string;
+  metaDescription: string;
+  metaKeywords: string;
+}
+
 export function BlogTagForm({
   data,
   onSuccess,
 }: OperationComponentProps<PlatformBlogTag>) {
   const formRef = useRef<FormInstance>(null);
   const isEdit = Boolean(data);
+  const [generating, setGenerating] = useState(false);
 
   const mutation = useApiMutation<
     PlatformBlogTag,
@@ -82,6 +94,45 @@ export function BlogTagForm({
       : platformBlogTagsApi.create.endpoint,
     revalidateTags: [platformBlogTagsApi.getList.key],
   });
+
+  const handleGenerateWithAI = async () => {
+    const form = formRef.current;
+    if (!form) return;
+
+    const name = form.state.values.name as string | undefined;
+    if (!name || name.length < 2) {
+      toast.error("Enter a tag name first");
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const result = await clientFetch<{ data: GeneratedData }>(
+        platformBlogTagsApi.generate.endpoint,
+        {
+          method: "POST",
+          body: { name },
+        },
+      );
+
+      const generated = result.data;
+      form.setFieldValue("slug", generated.slug);
+      form.setFieldValue("description", generated.description);
+      form.setFieldValue("metaTitle", generated.metaTitle);
+      form.setFieldValue("metaDescription", generated.metaDescription);
+      form.setFieldValue("metaKeywords", generated.metaKeywords);
+
+      toast.success("AI generated fields filled in!");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "AI generation failed. Check LLM settings.",
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleSubmit = async (values: TagFormData) => {
     try {
@@ -118,6 +169,28 @@ export function BlogTagForm({
       onSubmit={handleSubmit}
       submitLabel={isEdit ? "Update Tag" : "Create Tag"}
       isLoading={mutation.isPending}
+      renderActions={({ canSubmit, isSubmitting }) => (
+        <div className="flex items-center justify-between gap-3 pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={generating}
+            onClick={handleGenerateWithAI}
+          >
+            {generating ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="mr-1.5 h-4 w-4" />
+            )}
+            {generating ? "Generating..." : "Generate with AI"}
+          </Button>
+          <Button type="submit" disabled={!canSubmit || isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isEdit ? "Update Tag" : "Create Tag"}
+          </Button>
+        </div>
+      )}
     />
   );
 }

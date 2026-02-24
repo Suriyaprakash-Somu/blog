@@ -1,12 +1,15 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { SchemaForm } from "@/components/form/SchemaForm";
 import { type FormInstance } from "@/components/form/types";
 import { useApiMutation } from "@/hooks/useApiMutation";
 import { platformBlogCategoriesApi } from "@/lib/api/platform-blog-categories";
+import { clientFetch } from "@/lib/client-fetch";
+import { Button } from "@/components/ui/button";
+import { Loader2, Sparkles } from "lucide-react";
 import type { OperationComponentProps } from "@/components/dataTable/types";
 import type { PlatformBlogCategory } from "./types";
 
@@ -68,12 +71,21 @@ const categoryFormSchema = z.object({
 
 type CategoryFormData = z.infer<typeof categoryFormSchema>;
 
+interface GeneratedData {
+  slug: string;
+  description: string;
+  metaTitle: string;
+  metaDescription: string;
+  metaKeywords: string;
+}
+
 export function BlogCategoryForm({
   data,
   onSuccess,
 }: OperationComponentProps<PlatformBlogCategory>) {
   const formRef = useRef<FormInstance>(null);
   const isEdit = Boolean(data);
+  const [generating, setGenerating] = useState(false);
 
   const mutation = useApiMutation<
     PlatformBlogCategory,
@@ -85,6 +97,45 @@ export function BlogCategoryForm({
       : platformBlogCategoriesApi.create.endpoint,
     revalidateTags: [platformBlogCategoriesApi.getList.key],
   });
+
+  const handleGenerateWithAI = async () => {
+    const form = formRef.current;
+    if (!form) return;
+
+    const name = form.state.values.name as string | undefined;
+    if (!name || name.length < 2) {
+      toast.error("Enter a category name first");
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const result = await clientFetch<{ data: GeneratedData }>(
+        platformBlogCategoriesApi.generate.endpoint,
+        {
+          method: "POST",
+          body: { name },
+        },
+      );
+
+      const generated = result.data;
+      form.setFieldValue("slug", generated.slug);
+      form.setFieldValue("description", generated.description);
+      form.setFieldValue("metaTitle", generated.metaTitle);
+      form.setFieldValue("metaDescription", generated.metaDescription);
+      form.setFieldValue("metaKeywords", generated.metaKeywords);
+
+      toast.success("AI generated fields filled in!");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "AI generation failed. Check LLM settings.",
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleSubmit = async (values: CategoryFormData) => {
     try {
@@ -121,6 +172,28 @@ export function BlogCategoryForm({
       onSubmit={handleSubmit}
       submitLabel={isEdit ? "Update Category" : "Create Category"}
       isLoading={mutation.isPending}
+      renderActions={({ canSubmit, isSubmitting }) => (
+        <div className="flex items-center justify-between gap-3 pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={generating}
+            onClick={handleGenerateWithAI}
+          >
+            {generating ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="mr-1.5 h-4 w-4" />
+            )}
+            {generating ? "Generating..." : "Generate with AI"}
+          </Button>
+          <Button type="submit" disabled={!canSubmit || isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isEdit ? "Update Category" : "Create Category"}
+          </Button>
+        </div>
+      )}
     />
   );
 }

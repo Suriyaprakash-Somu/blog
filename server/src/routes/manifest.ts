@@ -11,6 +11,7 @@ export const ROUTE_PREFIXES = {
 export const PUBLIC_ROUTES = {
   analytics: "/api/public/analytics",
   banners: "/api/public/banners",
+  settings: "/api/public/settings",
   uploads: "/api/public/uploads",
 } as const;
 
@@ -19,6 +20,7 @@ export const PLATFORM_ROUTES = {
   auditLogs: "/api/platform/audit-logs",
   users: "/api/platform/users",
   banners: "/api/platform/banners",
+  settings: "/api/platform/settings",
   analytics: "/api/platform/analytics",
   blogCategories: "/api/platform/blog-categories",
   blogTags: "/api/platform/blog-tags",

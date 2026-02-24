@@ -59,4 +59,9 @@ export const rateLimitConfig = {
     timeWindow: getWindowEnv(env.RATE_LIMIT_PLATFORM_WINDOW, "1 minute"),
     keyGenerator: (request: FastifyRequest) => request.ip,
   },
+  public: {
+    max: getNumberEnv(env.RATE_LIMIT_GLOBAL_MAX, 100),
+    timeWindow: getWindowEnv(env.RATE_LIMIT_GLOBAL_WINDOW, "1 minute"),
+    keyGenerator: (request: FastifyRequest) => request.ip,
+  },
 } as const;

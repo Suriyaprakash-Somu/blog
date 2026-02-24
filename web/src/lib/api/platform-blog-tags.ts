@@ -24,4 +24,9 @@ export const platformBlogTagsApi = {
     endpoint: "/api/platform/blog-tags",
     method: "DELETE" as const,
   },
+  generate: {
+    key: "platform-blog-tags-generate",
+    endpoint: "/api/platform/blog-tags/generate",
+    method: "POST" as const,
+  },
 } as const;

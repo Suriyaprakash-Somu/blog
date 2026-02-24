@@ -24,4 +24,9 @@ export const platformBlogCategoriesApi = {
     endpoint: "/api/platform/blog-categories",
     method: "DELETE" as const,
   },
+  generate: {
+    key: "platform-blog-categories-generate",
+    endpoint: "/api/platform/blog-categories/generate",
+    method: "POST" as const,
+  },
 } as const;

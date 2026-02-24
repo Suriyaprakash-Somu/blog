@@ -34,6 +34,7 @@ export const SUBJECTS = {
   ANALYTICS: "Analytics",
   BLOG_CATEGORY: "BlogCategory",
   BLOG_TAG: "BlogTag",
+  PLATFORM_SETTINGS: "PlatformSettings",
 } as const;
 
 export type Subject = (typeof SUBJECTS)[keyof typeof SUBJECTS];

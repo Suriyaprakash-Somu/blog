@@ -178,6 +178,20 @@ export const MODULE_POLICIES: ModulePolicy[] = [
       order: 8,
       visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.ANALYTICS },
     },
+  },  
+  {
+    moduleKey: "platform.settings",
+    scope: "platform",
+    subject: SUBJECTS.PLATFORM_SETTINGS,
+    routeBase: "/platform/settings",
+    navigation: {
+      title: "Settings",
+      path: "/platform/settings",
+      iconKey: "settings",
+      section: "System",
+      order: 9,
+      visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.PLATFORM_SETTINGS },
+    },
   },
 
   {

@@ -1,11 +1,21 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
+import type { FastifyPluginAsync } from "fastify";
 import { CRUD_ACCESS } from "../../../access/crudAccess.js";
 import { createCrudRoutes, type HookContext } from "../../../core/crudFactory.js";
 import { rateLimitConfig } from "../../../core/rateLimit.js";
 import { createZodSchemas } from "../../../utils/schemaFactory.js";
 import { uploadedFiles } from "../../uploads/uploadedFiles.schema.js";
 import { blogTags } from "../blogTags.schema.js";
+import { chatCompletionJSON } from "../../settings/llm/completion.js";
+import {
+  buildBlogTagPrompt,
+  blogTagGeneratedSchema,
+  type BlogTagGenerated,
+} from "../prompts/generate.js";
+import { requirePlatformAuth } from "../../../middlewares/auth.guard.js";
+import { platformAbilityGuard } from "../../../middlewares/ability.guard.js";
+import { ACTIONS, SUBJECTS } from "../../rbac/public/permissions.js";
 
 const COLUMN_MAP = {
   name: blogTags.name,
@@ -58,7 +68,7 @@ async function assertPlatformUploadUsable(
   if (["DELETED", "PURGED"].includes(String(file.status))) throw badRequest("Image file is unavailable");
 }
 
-export const platformBlogTagsRoutes = createCrudRoutes({
+const crudRoutes = createCrudRoutes({
   table: blogTags,
   cache: {
     tag: "blogTags",
@@ -164,3 +174,54 @@ export const platformBlogTagsRoutes = createCrudRoutes({
     }
   },
 });
+
+/* ------------------------------------------------------------------ */
+/*  AI Generate endpoint                                              */
+/* ------------------------------------------------------------------ */
+
+const generateBodySchema = z.object({
+  name: z.string().min(1, "Tag name is required"),
+});
+
+const blogTagsGenerateRoute: FastifyPluginAsync = async (fastify) => {
+  fastify.post(
+    "/generate",
+    {
+      preHandler: [
+        requirePlatformAuth(),
+        platformAbilityGuard(ACTIONS.CREATE, SUBJECTS.BLOG_TAG),
+      ],
+      config: { rateLimit: rateLimitConfig.user },
+    },
+    async (request, reply) => {
+      const { name } = generateBodySchema.parse(request.body);
+      try {
+        const messages = buildBlogTagPrompt(name);
+        const result = await chatCompletionJSON<BlogTagGenerated>({
+          messages,
+          temperature: 0.7,
+        });
+        const validated = blogTagGeneratedSchema.parse(result);
+        return { success: true, data: validated };
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "AI generation failed";
+        return reply.status(400).send({
+          success: false,
+          error: { message },
+        });
+      }
+    },
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/*  Combined export                                                   */
+/* ------------------------------------------------------------------ */
+
+export const platformBlogTagsRoutes: FastifyPluginAsync = async (
+  fastify,
+) => {
+  await fastify.register(crudRoutes);
+  await fastify.register(blogTagsGenerateRoute);
+};

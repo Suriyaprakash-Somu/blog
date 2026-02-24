@@ -37,3 +37,6 @@ export * from "../../modules/blogCategories/blogCategories.schema.js";
 
 // Blog Tags
 export * from "../../modules/blogTags/blogTags.schema.js";
+
+// Settings
+export * from "./settings.js";
