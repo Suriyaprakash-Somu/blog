@@ -24,6 +24,7 @@ export const PLATFORM_ROUTES = {
   analytics: "/api/platform/analytics",
   blogCategories: "/api/platform/blog-categories",
   blogTags: "/api/platform/blog-tags",
+  blogPosts: "/api/platform/blog-posts",
 } as const;
 
 export const TENANT_ROUTES = {

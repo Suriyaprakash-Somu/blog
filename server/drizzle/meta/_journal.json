@@ -64,6 +64,13 @@
       "when": 1771863254754,
       "tag": "0008_nappy_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771955762178,
+      "tag": "0009_abandoned_sharon_ventura",
+      "breakpoints": true
     }
   ]
 }

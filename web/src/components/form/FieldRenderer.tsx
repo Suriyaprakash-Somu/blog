@@ -1,5 +1,3 @@
-"use client";
-
 import dynamic from "next/dynamic";
 import {
   Autocomplete,
@@ -26,12 +24,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { FieldArray } from "./FieldArray";
 import { FieldErrors } from "./FieldErrors";
 import { FileUploadField } from "./FileUploadField";
+import { MarkdownEditor } from "./MarkdownEditor";
 import type {
   ArrayFieldConfig,
   ArrayItemWithLocalId,
   FieldOption,
   FieldRendererProps,
   GroupedFieldOptions,
+  MarkdownFieldConfig,
 } from "./types";
 
 // Dynamic import for MapPicker
@@ -379,6 +379,21 @@ export function FieldRenderer({
           <FieldErrors errors={fieldErrors} />
         </div>
       );
+
+    case "markdown": {
+      const mdConfig = cfg as MarkdownFieldConfig;
+      return (
+        <div>
+          <MarkdownEditor
+            value={(value as string) ?? ""}
+            onChange={(v) => onChange(v)}
+            disabled={disabled}
+            height={mdConfig.height ?? 400}
+          />
+          <FieldErrors errors={fieldErrors} />
+        </div>
+      );
+    }
 
     default:
       return null;

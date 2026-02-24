@@ -237,6 +237,27 @@ export const MODULE_POLICIES: ModulePolicy[] = [
   },
 
   {
+    moduleKey: "platform.blogPosts",
+    scope: "platform",
+    subject: SUBJECTS.BLOG_POST,
+    routeBase: "/platform/blog-posts",
+    navigation: {
+      title: "Blog Posts",
+      path: "/platform/blog-posts",
+      iconKey: "file-text",
+      section: "System",
+      order: 12,
+      visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.BLOG_POST },
+    },
+    crud: {
+      key: "platformBlogPosts",
+      mode: "platform",
+      tenantScope: false,
+      operations: crudFull(SUBJECTS.BLOG_POST),
+    },
+  },
+
+  {
     moduleKey: "tenant.dashboard",
     scope: "tenant",
     subject: SUBJECTS.ORGANIZATION,

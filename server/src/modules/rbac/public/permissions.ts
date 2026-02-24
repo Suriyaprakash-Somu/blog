@@ -34,6 +34,7 @@ export const SUBJECTS = {
   ANALYTICS: "Analytics",
   BLOG_CATEGORY: "BlogCategory",
   BLOG_TAG: "BlogTag",
+  BLOG_POST: "BlogPost",
   PLATFORM_SETTINGS: "PlatformSettings",
 } as const;
 

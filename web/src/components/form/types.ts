@@ -25,7 +25,8 @@ export type FieldType =
   | "file"
   | "array"
   | "autocomplete"
-  | "map-picker";
+  | "map-picker"
+  | "markdown";
 
 /**
  * Option for select/radio/multiselect fields
@@ -160,6 +161,11 @@ export interface MapPickerFieldConfig extends BaseFieldConfig {
   type: "map-picker";
 }
 
+export interface MarkdownFieldConfig extends BaseFieldConfig {
+  type: "markdown";
+  height?: number;
+}
+
 export interface MapValue {
   lat: number;
   lng: number;
@@ -182,7 +188,8 @@ export type FieldConfig =
   | BooleanFieldConfig
   | FileFieldConfig
   | ArrayFieldConfig
-  | MapPickerFieldConfig;
+  | MapPickerFieldConfig
+  | MarkdownFieldConfig;
 
 // =============================================================================
 // Form Values

@@ -66,7 +66,7 @@ function openaiCompatible(baseUrl: string): ProviderCaller {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(240_000),
       });
 
       if (!res.ok) {
@@ -107,7 +107,7 @@ function anthropicCaller(): ProviderCaller {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(180_000),
       });
 
       if (!res.ok) {
@@ -154,7 +154,7 @@ function googleCaller(): ProviderCaller {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(180_000),
       });
 
       if (!res.ok) {
@@ -249,8 +249,10 @@ export async function chatCompletionJSON<T = unknown>(
   const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 
   try {
-    return JSON.parse(cleaned) as T;
-  } catch {
-    throw new Error(`LLM returned invalid JSON: ${raw.slice(0, 200)}`);
+    const parsed = JSON.parse(cleaned) as T;
+    return parsed;
+  } catch (err) {
+    console.error("[LLM parse error] Raw response:", raw);
+    throw new Error(`LLM returned invalid JSON: ${raw.slice(0, 500)}`);
   }
 }

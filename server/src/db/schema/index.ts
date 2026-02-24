@@ -38,5 +38,9 @@ export * from "../../modules/blogCategories/blogCategories.schema.js";
 // Blog Tags
 export * from "../../modules/blogTags/blogTags.schema.js";
 
+// Blog Posts
+export * from "../../modules/blogPosts/blogPosts.schema.js";
+export * from "../../modules/blogPosts/blogPostTags.schema.js";
+
 // Settings
 export * from "./settings.js";
