@@ -23,4 +23,11 @@ export async function registerPublicRoutes(app: FastifyInstance) {
     basePrefix: ROUTE_PREFIXES.public,
     label: "public.settings",
   });
+
+  const { publicBlogPostsRoutes } = await import("../modules/blogPosts/public/index.js");
+  await registerWithPrefix(app, publicBlogPostsRoutes, {
+    prefix: PUBLIC_ROUTES.blogPosts,
+    basePrefix: ROUTE_PREFIXES.public,
+    label: "public.blogPosts",
+  });
 }

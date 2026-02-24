@@ -13,6 +13,7 @@ export const PUBLIC_ROUTES = {
   banners: "/api/public/banners",
   settings: "/api/public/settings",
   uploads: "/api/public/uploads",
+  blogPosts: "/api/public/blog-posts",
 } as const;
 
 export const PLATFORM_ROUTES = {
