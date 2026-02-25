@@ -26,6 +26,7 @@ export interface SchemaMetadata {
   emptyIndicator?: string;
   optional?: boolean;
   uploadMode?: "auth" | "public";
+  sortable?: boolean;
 }
 
 // Store metadata in WeakMap

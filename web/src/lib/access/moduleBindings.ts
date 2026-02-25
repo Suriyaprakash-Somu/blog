@@ -44,6 +44,12 @@ export const MODULE_BINDINGS: Record<string, ModuleBinding> = {
     routeBase: "/platform/analytics",
     subject: Subjects.ANALYTICS,
   },
+  "platform.featuredCollections": {
+    moduleKey: "platform.featuredCollections",
+    scope: "platform",
+    routeBase: "/platform/featured-collections",
+    subject: Subjects.PLATFORM_SETTINGS,
+  },
   "platform.blogCategories": {
     moduleKey: "platform.blogCategories",
     scope: "platform",

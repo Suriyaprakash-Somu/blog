@@ -196,6 +196,7 @@ export function zodToFields<T extends z.ZodObject<z.ZodRawShape>>(
         ...baseConfig,
         type: "array" as const,
         singularLabel: metadata.singularLabel,
+        sortable: metadata.sortable,
         arrayItemSchema,
       };
     }

@@ -180,6 +180,20 @@ export const MODULE_POLICIES: ModulePolicy[] = [
     },
   },  
   {
+    moduleKey: "platform.featuredCollections",
+    scope: "platform",
+    subject: SUBJECTS.PLATFORM_SETTINGS,
+    routeBase: "/platform/featured-collections",
+    navigation: {
+      title: "Featured Content",
+      path: "/platform/featured-collections",
+      iconKey: "layout-list",
+      section: "Content",
+      order: 1,
+      visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.PLATFORM_SETTINGS },
+    },
+  },
+  {
     moduleKey: "platform.settings",
     scope: "platform",
     subject: SUBJECTS.PLATFORM_SETTINGS,
@@ -203,8 +217,8 @@ export const MODULE_POLICIES: ModulePolicy[] = [
       title: "Blog Categories",
       path: "/platform/blog-categories",
       iconKey: "folder",
-      section: "System",
-      order: 10,
+      section: "Content",
+      order: 2,
       visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.BLOG_CATEGORY },
     },
     crud: {
@@ -224,8 +238,8 @@ export const MODULE_POLICIES: ModulePolicy[] = [
       title: "Blog Tags",
       path: "/platform/blog-tags",
       iconKey: "tag",
-      section: "System",
-      order: 11,
+      section: "Content",
+      order: 3,
       visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.BLOG_TAG },
     },
     crud: {
@@ -245,8 +259,8 @@ export const MODULE_POLICIES: ModulePolicy[] = [
       title: "Blog Posts",
       path: "/platform/blog-posts",
       iconKey: "file-text",
-      section: "System",
-      order: 12,
+      section: "Content",
+      order: 4,
       visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.BLOG_POST },
     },
     crud: {

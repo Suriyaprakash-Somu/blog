@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, GripVertical } from "lucide-react";
 import { FieldRenderer } from "./FieldRenderer";
 import { FieldErrors } from "./FieldErrors";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import type {
   ArrayItemWithLocalId,
   FieldConfig,
   FieldValue,
+  FieldOption,
 } from "./types";
 
 /**
@@ -27,6 +28,24 @@ interface NormalizedError {
 /**
  * FieldArray component for managing arrays of items
  */
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
 export function FieldArray({
   name,
   label,
@@ -38,7 +57,24 @@ export function FieldArray({
   errors,
   disabled,
   isSubmitted,
-}: FieldArrayProps): React.ReactElement {
+  sortable = false,
+  fieldOptionsMap,
+}: FieldArrayProps & { sortable?: boolean }): React.ReactElement {
+  // Strip the array field prefix from fieldOptionsMap keys so sub-fields can match
+  // e.g. { "items.entityId": [...] } becomes { "entityId": [...] }
+  const subFieldOptions = useMemo(() => {
+    if (!fieldOptionsMap) return undefined;
+    const result: Record<string, FieldOption[]> = {};
+    const prefix = `${name}.`;
+    for (const [key, val] of Object.entries(fieldOptionsMap)) {
+      if (key.startsWith(prefix)) {
+        result[key.slice(prefix.length)] = val;
+      } else {
+        result[key] = val;
+      }
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  }, [fieldOptionsMap, name]);
   // Ensure all items have IDs
   const items = useMemo(
     () => ensureLocalIds(Array.isArray(value) ? value : []),
@@ -148,6 +184,37 @@ export function FieldArray({
     return undefined;
   };
 
+  // Drag and Drop handlers
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = items.findIndex((i) => getItemId(i) === active.id);
+      const newIndex = items.findIndex((i) => getItemId(i) === over.id);
+
+      const reorderedItems = arrayMove(items, oldIndex, newIndex);
+
+      // Update order field if it exists in the schema
+      const orderField = itemFields.find((f) => f.name === "order");
+      if (orderField) {
+        const withUpdatedOrder = reorderedItems.map((item, index) => ({
+          ...item,
+          order: index + 1,
+        }));
+        onChange(withUpdatedOrder);
+      } else {
+        onChange(reorderedItems);
+      }
+    }
+  };
+
   return (
     <div className="space-y-3" data-testid={`field-array-${name}`}>
       <div className="flex items-center justify-between">
@@ -173,72 +240,241 @@ export function FieldArray({
       )}
 
       <div className="space-y-3">
-        {items.map((item, index) => (
-          <Card
-            key={getItemId(item)}
-            className="p-4"
-            data-testid={`${name}-item-${index}`}
+        {sortable ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
           >
-            <div className="flex items-start justify-between mb-3">
-              <h4 className="text-sm font-medium">
-                {singularLabel ?? label} #{index + 1}
-              </h4>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => removeItem(index)}
-                disabled={disabled}
-                className="h-8 w-8 p-0"
-                data-testid={`remove-${name}-item-${index}`}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
+            <SortableContext
+              items={items.map((i) => getItemId(i))}
+              strategy={verticalListSortingStrategy}
+            >
+              {items.map((item, index) => (
+                <SortableArrayItem
+                  key={getItemId(item)}
+                  id={getItemId(item)}
+                  item={item}
+                  index={index}
+                  name={name}
+                  singularLabel={singularLabel}
+                  label={label}
+                  itemFields={itemFields}
+                  disabled={disabled}
+                  removeItem={removeItem}
+                  updateItem={updateItem}
+                  getItemErrors={getItemErrors}
+                  onBlur={onBlur}
+                  markTouched={markTouched}
+                  subFieldOptions={subFieldOptions}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        ) : (
+          items.map((item, index) => (
+            <Card
+              key={getItemId(item)}
+              className="p-4"
+              data-testid={`${name}-item-${index}`}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <h4 className="text-sm font-medium">
+                  {singularLabel ?? label} #{index + 1}
+                </h4>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => removeItem(index)}
+                  disabled={disabled}
+                  className="h-8 w-8 p-0"
+                  data-testid={`remove-${name}-item-${index}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
 
-            <div className="grid grid-cols-12 gap-4">
-              {[...itemFields]
-                .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                .map((field: FieldConfig) => {
-                  const span = field.colSpan ?? 12;
-                  const colClass = colSpanClass(span);
-                  const fieldErrors = getItemErrors(index, field.name);
+              <div className="grid grid-cols-12 gap-4">
+                {[...itemFields]
+                  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                  .map((field: FieldConfig) => {
+                    const span = field.colSpan ?? 12;
+                    const colClass = colSpanClass(span);
+                    const fieldErrors = getItemErrors(index, field.name);
 
-                  return (
-                    <div
-                      key={field.name}
-                      className={`col-span-12 ${colClass} space-y-1.5`}
-                    >
-                      <Label
-                        htmlFor={`${name}.${index}.${field.name}`}
-                        className="text-sm"
+                    // Skip rendering the 'order' field if sortable since it's managed via drag-and-drop
+                    if (sortable && field.name === "order") return null;
+                    // Skip fields excluded from form
+                    if (field.excludeFrom === "form") return null;
+
+                    return (
+                      <div
+                        key={field.name}
+                        className={`col-span-12 ${colClass} space-y-1.5`}
                       >
-                        {field.label}
-                        {field.required && (
-                          <span className="text-destructive ml-1">*</span>
-                        )}
-                      </Label>
-                      <FieldRenderer
-                        cfg={field}
-                        id={`${name}.${index}.${field.name}`}
-                        value={item[field.name] as FieldValue}
-                        onChange={(v) => updateItem(index, field.name, v)}
-                        onBlur={() => {
-                          onBlur?.();
-                          markTouched(`${name}.${index}.${field.name}`);
-                        }}
-                        disabled={disabled}
-                      />
-                      {fieldErrors && <FieldErrors errors={fieldErrors} />}
-                    </div>
-                  );
-                })}
-            </div>
-          </Card>
-        ))}
+                        <Label
+                          htmlFor={`${name}.${index}.${field.name}`}
+                          className="text-sm"
+                        >
+                          {field.label}
+                          {field.required && (
+                            <span className="text-destructive ml-1">*</span>
+                          )}
+                        </Label>
+                        <FieldRenderer
+                          cfg={field}
+                          id={`${name}.${index}.${field.name}`}
+                          value={item[field.name] as FieldValue}
+                          onChange={(v) => updateItem(index, field.name, v)}
+                          onBlur={() => {
+                            onBlur?.();
+                            markTouched(`${name}.${index}.${field.name}`);
+                          }}
+                          disabled={disabled}
+                          overrideOptions={subFieldOptions?.[field.name]}
+                        />
+                        {fieldErrors && <FieldErrors errors={fieldErrors} />}
+                      </div>
+                    );
+                  })}
+              </div>
+            </Card>
+          ))
+        )}
       </div>
 
       <FieldErrors errors={arrayErrors} />
     </div>
+  );
+}
+
+// Sub-component for sortable item
+function SortableArrayItem({
+  id,
+  item,
+  index,
+  name,
+  singularLabel,
+  label,
+  itemFields,
+  disabled,
+  removeItem,
+  updateItem,
+  getItemErrors,
+  onBlur,
+  markTouched,
+  subFieldOptions,
+}: {
+  id: string;
+  item: ArrayItemWithLocalId;
+  index: number;
+  name: string;
+  singularLabel?: string;
+  label: string;
+  itemFields: FieldConfig[];
+  disabled?: boolean;
+  removeItem: (index: number) => void;
+  updateItem: (index: number, fieldName: string, fieldValue: unknown) => void;
+  getItemErrors: (index: number, fieldName: string) => string[] | undefined;
+  onBlur?: () => void;
+  markTouched: (path: string) => void;
+  subFieldOptions?: Record<string, FieldOption[]>;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 2 : 1,
+    opacity: isDragging ? 0.8 : 1,
+  };
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={`p-4 ${isDragging ? "shadow-md ring-2 ring-primary ring-opacity-50" : ""}`}
+      data-testid={`${name}-item-${index}`}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          {/* Drag Handle */}
+          <div
+            {...attributes}
+            {...listeners}
+            className="cursor-grab hover:bg-muted p-1 rounded transition-colors"
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <h4 className="text-sm font-medium">
+            {singularLabel ?? label} #{index + 1}
+          </h4>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => removeItem(index)}
+          disabled={disabled}
+          className="h-8 w-8 p-0"
+          data-testid={`remove-${name}-item-${index}`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-12 gap-4">
+        {[...itemFields]
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+          .map((field: FieldConfig) => {
+            const span = field.colSpan ?? 12;
+            const colClass = colSpanClass(span);
+            const fieldErrors = getItemErrors(index, field.name);
+
+            // Hide the 'order' field when sortable is true
+            if (field.name === "order") return null;
+            // Skip fields excluded from form
+            if (field.excludeFrom === "form") return null;
+
+            return (
+              <div
+                key={field.name}
+                className={`col-span-12 ${colClass} space-y-1.5`}
+              >
+                <Label
+                  htmlFor={`${name}.${index}.${field.name}`}
+                  className="text-sm"
+                >
+                  {field.label}
+                  {field.required && (
+                    <span className="text-destructive ml-1">*</span>
+                  )}
+                </Label>
+                <FieldRenderer
+                  cfg={field}
+                  id={`${name}.${index}.${field.name}`}
+                  value={item[field.name] as FieldValue}
+                  onChange={(v) => updateItem(index, field.name, v)}
+                  onBlur={() => {
+                    onBlur?.();
+                    markTouched(`${name}.${index}.${field.name}`);
+                  }}
+                  disabled={disabled}
+                  overrideOptions={subFieldOptions?.[field.name]}
+                />
+                {fieldErrors && <FieldErrors errors={fieldErrors} />}
+              </div>
+            );
+          })}
+      </div>
+    </Card>
   );
 }

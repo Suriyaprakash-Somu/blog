@@ -44,3 +44,6 @@ export * from "../../modules/blogPosts/blogPostTags.schema.js";
 
 // Settings
 export * from "./settings.js";
+
+// Featured Content
+export * from "../../modules/featured/featured.schema.js";

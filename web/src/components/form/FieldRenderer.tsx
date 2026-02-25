@@ -82,6 +82,7 @@ export function FieldRenderer({
   overrideOptions,
   errors,
   isSubmitted,
+  fieldOptionsMap,
 }: FieldRendererProps): React.ReactElement | null {
   const options =
     overrideOptions ?? (cfg as { options?: FieldOption[] }).options ?? [];
@@ -130,6 +131,8 @@ export function FieldRenderer({
           errors={errors}
           disabled={disabled}
           isSubmitted={isSubmitted}
+          sortable={arrayConfig.sortable}
+          fieldOptionsMap={fieldOptionsMap}
         />
       );
     }

@@ -50,7 +50,13 @@ export interface GroupedFieldOptions {
  */
 export interface VisibilityCondition {
   field: string;
-  operator: "equals" | "notEquals" | "contains" | "notContains" | "greaterThan" | "lessThan";
+  operator:
+    | "equals"
+    | "notEquals"
+    | "contains"
+    | "notContains"
+    | "greaterThan"
+    | "lessThan";
   value: unknown;
 }
 
@@ -152,6 +158,7 @@ export interface ArrayFieldConfig extends BaseFieldConfig {
   type: "array";
   singularLabel?: string;
   arrayItemSchema: FieldConfig[];
+  sortable?: boolean;
 }
 
 /**
@@ -165,6 +172,7 @@ export interface MarkdownFieldConfig extends BaseFieldConfig {
   type: "markdown";
   height?: number;
 }
+
 
 export interface MapValue {
   lat: number;
@@ -211,25 +219,26 @@ export interface ArrayItemWithLocalId {
 /**
  * Typed map of values for each field config
  */
-export type FieldValueByConfig<C extends FieldConfig> = C extends TextFieldConfig
-  ? string
-  : C extends NumberFieldConfig
+export type FieldValueByConfig<C extends FieldConfig> =
+  C extends TextFieldConfig
     ? string
-    : C extends DateFieldConfig
+    : C extends NumberFieldConfig
       ? string
-      : C extends SelectFieldConfig
-        ? string | number
-        : C extends MultiSelectFieldConfig
-          ? Array<string | number>
-          : C extends BooleanFieldConfig
-            ? boolean
-            : C extends FileFieldConfig
-              ? string | string[] | null
-              : C extends ArrayFieldConfig
-                ? ArrayItemWithLocalId[]
-                : C extends MapPickerFieldConfig
-                  ? MapValue | null
-                  : string;
+      : C extends DateFieldConfig
+        ? string
+        : C extends SelectFieldConfig
+          ? string | number
+          : C extends MultiSelectFieldConfig
+            ? Array<string | number>
+            : C extends BooleanFieldConfig
+              ? boolean
+              : C extends FileFieldConfig
+                ? string | string[] | null
+                : C extends ArrayFieldConfig
+                  ? ArrayItemWithLocalId[]
+                  : C extends MapPickerFieldConfig
+                    ? MapValue | null
+                    : string;
 
 // =============================================================================
 // Validation
@@ -317,6 +326,8 @@ export interface SchemaFormProps<T extends z.ZodTypeAny = z.ZodTypeAny> {
   navigationGuardMessage?: string;
   /** Form instance ref */
   formRef?: RefObject<FormInstance | null>;
+  /** Dynamic options for fields inside arrays: { "arrayName.fieldName": options } */
+  fieldOptionsMap?: Record<string, FieldOption[]>;
 }
 
 // =============================================================================
@@ -338,6 +349,8 @@ export interface FieldRendererProps {
   overrideOptions?: FieldOption[] | GroupedFieldOptions[];
   errors?: string[];
   isSubmitted?: boolean;
+  /** Dynamic options for sub-fields inside arrays */
+  fieldOptionsMap?: Record<string, FieldOption[]>;
 }
 
 /**
@@ -354,6 +367,8 @@ export interface FieldArrayProps {
   errors?: string[];
   disabled?: boolean;
   isSubmitted?: boolean;
+  /** Dynamic options for sub-fields: { "fieldName": options } */
+  fieldOptionsMap?: Record<string, FieldOption[]>;
 }
 
 /**

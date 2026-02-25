@@ -19,6 +19,7 @@ export const Subjects = {
   BANNER: "Banner",
   ANALYTICS: "Analytics",
   BLOG_CATEGORY: "BlogCategory",
+  PLATFORM_SETTINGS: "PlatformSettings",
 } as const;
 
 export type AppAction = (typeof Actions)[keyof typeof Actions];

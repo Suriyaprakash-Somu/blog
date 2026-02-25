@@ -14,6 +14,7 @@ export const PUBLIC_ROUTES = {
   settings: "/api/public/settings",
   uploads: "/api/public/uploads",
   blogPosts: "/api/public/blog-posts",
+  featured: "/api/public/featured",
 } as const;
 
 export const PLATFORM_ROUTES = {
@@ -26,6 +27,7 @@ export const PLATFORM_ROUTES = {
   blogCategories: "/api/platform/blog-categories",
   blogTags: "/api/platform/blog-tags",
   blogPosts: "/api/platform/blog-posts",
+  featured: "/api/platform/featured",
 } as const;
 
 export const TENANT_ROUTES = {

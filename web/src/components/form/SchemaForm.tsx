@@ -58,6 +58,7 @@ export function SchemaForm<T extends z.ZodObject<z.ZodRawShape>>({
   enableNavigationGuard = false,
   navigationGuardMessage,
   formRef,
+  fieldOptionsMap,
 }: SchemaFormProps<T>): React.ReactElement {
   const fields = React.useMemo(() => parseZodSchema(schema), [schema]);
 
@@ -273,15 +274,21 @@ export function SchemaForm<T extends z.ZodObject<z.ZodRawShape>>({
                           return items.filter(predicate);
                         };
 
-                        let filteredOptions: FieldOption[]
+                        let filteredOptions:
+                          | FieldOption[]
                           | GroupedFieldOptions[]
                           | undefined = hasOptions
-                          ? (cfg.options as FieldOption[] | GroupedFieldOptions[])
+                          ? (cfg.options as
+                              | FieldOption[]
+                              | GroupedFieldOptions[])
                           : undefined;
 
                         if (cfg.excludeFrom && filteredOptions) {
                           const excludeValue = values?.[cfg.excludeFrom];
-                          if (excludeValue !== undefined && excludeValue !== null) {
+                          if (
+                            excludeValue !== undefined &&
+                            excludeValue !== null
+                          ) {
                             filteredOptions = filterOptions(
                               filteredOptions,
                               (opt) => opt.value !== excludeValue,
@@ -293,7 +300,10 @@ export function SchemaForm<T extends z.ZodObject<z.ZodRawShape>>({
                         if (cfg.filterBy && filteredOptions) {
                           const { field, optionKey } = cfg.filterBy;
                           const filterValue = values?.[field];
-                          if (filterValue !== undefined && filterValue !== null) {
+                          if (
+                            filterValue !== undefined &&
+                            filterValue !== null
+                          ) {
                             filteredOptions = filterOptions(
                               filteredOptions,
                               (opt) => opt[optionKey] === filterValue,
@@ -318,20 +328,20 @@ export function SchemaForm<T extends z.ZodObject<z.ZodRawShape>>({
                                   )}
                                 </Label>
 
-                             <FieldRenderer
-                               cfg={cfg}
-                               value={fieldValue}
-                               onChange={(val) => {
-                                 field.handleChange(val);
-                                 onFieldChange?.(cfg.name, val);
-                               }}
-                               onBlur={field.handleBlur}
-                               disabled={
-                                 isFormDisabled ||
-                                 cfg.disabled ||
-                                 disabledFields.includes(cfg.name)
-                               }
-                             />
+                                <FieldRenderer
+                                  cfg={cfg}
+                                  value={fieldValue}
+                                  onChange={(val) => {
+                                    field.handleChange(val);
+                                    onFieldChange?.(cfg.name, val);
+                                  }}
+                                  onBlur={field.handleBlur}
+                                  disabled={
+                                    isFormDisabled ||
+                                    cfg.disabled ||
+                                    disabledFields.includes(cfg.name)
+                                  }
+                                />
                               </div>
                               {showErrors && (
                                 <FieldErrors
@@ -360,6 +370,7 @@ export function SchemaForm<T extends z.ZodObject<z.ZodRawShape>>({
                                 errors={showErrors ? allErrors : []}
                                 isSubmitted={isSubmitted}
                                 disabled={isFormDisabled || cfg.disabled}
+                                fieldOptionsMap={fieldOptionsMap}
                               />
                             </div>
                           );
@@ -396,6 +407,7 @@ export function SchemaForm<T extends z.ZodObject<z.ZodRawShape>>({
                                 disabledFields.includes(cfg.name)
                               }
                               overrideOptions={filteredOptions}
+                              fieldOptionsMap={fieldOptionsMap}
                             />
 
                             {showErrors && (
