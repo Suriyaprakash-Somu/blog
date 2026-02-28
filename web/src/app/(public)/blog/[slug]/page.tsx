@@ -1,156 +1,222 @@
-"use client";
-
-import { useQuery } from "@tanstack/react-query";
-import { publicBlogPostsApi } from "@/lib/api/public-blog-posts";
-import { clientFetch } from "@/lib/client-fetch";
-import { format } from "date-fns";
-import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useTheme } from "next-themes";
-import dynamic from "next/dynamic";
+import { notFound } from "next/navigation";
+import { format } from "date-fns";
+import { ArrowLeft } from "lucide-react";
+import { MarkdownContentServer } from "@/components/blog/MarkdownContentServer";
+import type { Metadata } from "next";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { absoluteUrl, breadcrumbList, faqPage } from "@/lib/seo/jsonld";
+import { getPublicImageUrl } from "@/lib/utils";
+import { PublicBreadcrumbs } from "@/components/layout/PublicBreadcrumbs";
 
-// Dynamically import the markdown preview to avoid SSR hydration issues
-const MarkdownPreview = dynamic(
-  () => import("@uiw/react-md-editor").then((mod) => mod.default.Markdown),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="animate-pulse h-96 bg-muted/50 rounded-lg w-full"></div>
-    ),
-  },
-);
+export const revalidate = 60 * 60 * 3;
 
-interface PublicPostDetail {
+type PublicPostDetail = {
   id: string;
   title: string;
   slug: string;
-  excerpt: string;
-  content: string;
+  excerpt: string | null;
+  content: string | null;
   faq: { question: string; answer: string }[];
   publishedAt: string | null;
   readTimeMinutes: number;
   featuredImageUrl: string | null;
   metaTitle: string | null;
   metaDescription: string | null;
+  metaKeywords: string | null;
+  authorName: string | null;
+  authorEmail: string | null;
+  categoryName: string | null;
+  categorySlug: string | null;
+};
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const apiBase = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3005";
+  const res = await fetch(`${apiBase}${url}`, { next: { revalidate } });
+  if (!res.ok) throw new Error(`Request failed: ${url}`);
+  return (await res.json()) as T;
 }
 
-export default function BlogPostPage() {
-  const { slug } = useParams() as { slug: string };
-  const { resolvedTheme } = useTheme();
+function toKeywords(value: string | null | undefined): string[] | undefined {
+  if (!value) return undefined;
+  const parts = value
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts : undefined;
+}
 
-  const {
-    data: post,
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: [publicBlogPostsApi.getBySlug.key, slug],
-    queryFn: async () => {
-      const res = await clientFetch<{ data: PublicPostDetail }>(
-        publicBlogPostsApi.getBySlug.endpoint({ slug }),
-      );
-      return res.data;
+function asOgImage(url: string | null): string | undefined {
+  if (!url) return undefined;
+  // Only include if it already looks like a URL.
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  return undefined;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { slug: string };
+}): Promise<Metadata> {
+  const { slug } = await params;
+
+  const res = await fetchJson<{ success: true; data: PublicPostDetail }>(
+    `/api/public/blog-posts/${encodeURIComponent(slug)}`,
+  ).catch(() => null);
+
+  if (!res?.data) {
+    return {
+      title: "Post Not Found",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const post = res.data;
+  const title = post.metaTitle?.trim() || post.title;
+  const description =
+    post.metaDescription?.trim() || post.excerpt?.trim() || undefined;
+  const keywords = toKeywords(post.metaKeywords);
+  const ogImage = asOgImage(getPublicImageUrl(post.featuredImageUrl) ?? null);
+
+  return {
+    title,
+    description,
+    keywords,
+    alternates: { canonical: `/blog/${post.slug}` },
+    openGraph: {
+      type: "article",
+      title,
+      description,
+      url: `/blog/${post.slug}`,
+      publishedTime: post.publishedAt ?? undefined,
+      images: ogImage ? [{ url: ogImage }] : undefined,
     },
-    retry: false,
-  });
+    twitter: {
+      card: ogImage ? "summary_large_image" : "summary",
+      title,
+      description,
+      images: ogImage ? [ogImage] : undefined,
+    },
+  };
+}
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+export default async function BlogPostPage({
+  params,
+}: {
+  params: { slug: string };
+}) {
+  const { slug } = await params;
 
-  if (isError || !post) {
-    return (
-      <div className="container mx-auto px-4 py-32 text-center max-w-2xl">
-        <h1 className="text-3xl font-bold mb-4">Post Not Found</h1>
-        <p className="text-muted-foreground mb-8">
-          The article you are looking for does not exist or has been removed.
-        </p>
-        <Link
-          href="/blog"
-          className="inline-flex items-center text-primary font-medium hover:underline"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Blog
-        </Link>
-      </div>
-    );
-  }
+  const res = await fetchJson<{ success: true; data: PublicPostDetail }>(
+    `/api/public/blog-posts/${encodeURIComponent(slug)}`,
+  ).catch(() => null);
+
+  if (!res?.data) notFound();
+  const post = res.data;
+
+  const breadcrumbs = breadcrumbList([
+    { name: "Home", url: absoluteUrl("/") },
+    { name: "Blog", url: absoluteUrl("/blog") },
+    { name: post.title, url: absoluteUrl(`/blog/${post.slug}`) },
+  ]);
+
+  const faqSchema = post.faq && post.faq.length > 0 ? faqPage(post.faq) : null;
 
   return (
-    <article className="container mx-auto px-4 py-8 max-w-4xl pb-24">
-      <Link
-        href="/blog"
-        className="inline-flex items-center text-muted-foreground font-medium hover:text-foreground mb-8 text-sm transition-colors"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" /> Back to all articles
-      </Link>
+    <article className="container mx-auto px-4 py-8 pb-24">
+      <JsonLd data={[breadcrumbs, ...(faqSchema ? [faqSchema] : [])]} />
 
-      <div className="space-y-4 mb-10 text-center">
-        <div className="flex items-center justify-center gap-x-4 text-sm mb-4">
-          <time
-            dateTime={post.publishedAt || new Date().toISOString()}
-            className="text-muted-foreground"
-          >
+      <div className="mx-auto max-w-6xl">
+        <PublicBreadcrumbs
+          customCrumbs={[
+            { label: "Blog", href: "/blog", isLast: false },
+            { label: post.title, href: `/blog/${post.slug}`, isLast: true },
+          ]}
+        />
+      </div>
+
+      <div className="space-y-6 mb-12 mx-auto max-w-6xl">
+        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl lg:leading-tight text-balance">
+          {post.title}
+        </h1>
+
+        <div className="flex flex-wrap items-center gap-4 text-sm mt-8 mb-8 font-medium text-muted-foreground w-full border-y py-4">
+          {post.authorName ? (
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
+                {post.authorName.charAt(0).toUpperCase()}
+              </div>
+              <span className="text-foreground">{post.authorName}</span>
+            </div>
+          ) : null}
+
+          {post.authorName && (post.categoryName || post.publishedAt) && (
+            <span className="hidden sm:inline">•</span>
+          )}
+
+          {post.categoryName && post.categorySlug ? (
+            <Link
+              href={`/categories/${post.categorySlug}`}
+              className="text-primary hover:underline hover:text-primary/80 transition-colors"
+            >
+              {post.categoryName}
+            </Link>
+          ) : null}
+
+          {post.categoryName && post.publishedAt && (
+            <span className="hidden sm:inline">•</span>
+          )}
+
+          <time dateTime={post.publishedAt || new Date().toISOString()}>
             {post.publishedAt
               ? format(new Date(post.publishedAt), "MMMM d, yyyy")
               : "Recently"}
           </time>
-          <span className="text-muted-foreground">•</span>
-          <span className="text-muted-foreground">
-            {post.readTimeMinutes || 5} min read
-          </span>
+
+          <span className="hidden sm:inline">•</span>
+          <span>{post.readTimeMinutes || 5} min read</span>
         </div>
-        <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl text-balance">
-          {post.title}
-        </h1>
-        {post.excerpt && (
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mt-4 text-balance">
+
+        {post.excerpt ? (
+          <p className="text-base sm:text-lg lg:text-xl text-muted-foreground mt-6 text-justify leading-relaxed">
             {post.excerpt}
           </p>
-        )}
+        ) : null}
       </div>
 
-      {post.featuredImageUrl && (
-        <div className="aspect-video w-full overflow-hidden rounded-2xl bg-muted mb-16 shadow-lg">
+      {post.featuredImageUrl ? (
+        <div className="aspect-21/9 w-full overflow-hidden max-w-6xl mx-auto rounded-3xl bg-muted mb-16 shadow-lg border">
           <img
-            src={post.featuredImageUrl}
+            src={getPublicImageUrl(post.featuredImageUrl) ?? undefined}
             alt={post.title}
             className="w-full h-full object-cover"
           />
         </div>
-      )}
+      ) : null}
 
-      <div className="prose prose-lg dark:prose-invert prose-primary mx-auto w-full max-w-none">
-        <div data-color-mode={resolvedTheme === "dark" ? "dark" : "light"}>
-          <MarkdownPreview
-            source={post.content || "_No content provided._"}
-            className="bg-transparent! text-foreground!"
-            style={{ backgroundColor: "transparent", color: "inherit" }}
-          />
-        </div>
+      <div className="mx-auto max-w-[98ch]">
+        <MarkdownContentServer
+          source={post.content || "_No content provided._"}
+        />
       </div>
 
-      {post.faq && post.faq.length > 0 && (
-        <div className="mt-20 border-t pt-10 mx-auto max-w-3xl">
-          <h2 className="text-3xl font-bold tracking-tight mb-8">
+      {post.faq && post.faq.length > 0 ? (
+        <div className="mt-24 border-t pt-16 mx-auto max-w-[98ch]">
+          <h2 className="text-3xl font-extrabold tracking-tight mb-10 text-balance">
             Frequently Asked Questions
           </h2>
-          <div className="space-y-6">
+          <div className="space-y-8">
             {post.faq.map((item, index) => (
-              <div
-                key={index}
-                className="bg-secondary/20 p-6 rounded-xl border"
-              >
-                <h3 className="text-lg font-semibold mb-2">{item.question}</h3>
-                <p className="text-muted-foreground">{item.answer}</p>
+              <div key={index}>
+                <h3 className="text-xl font-semibold mb-3 text-balance">
+                  {item.question}
+                </h3>
+                <p className="leading-7 text-foreground/90">{item.answer}</p>
               </div>
             ))}
           </div>
         </div>
-      )}
+      ) : null}
     </article>
   );
 }

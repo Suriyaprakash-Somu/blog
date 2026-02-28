@@ -1,67 +1,27 @@
 "use client";
 
 import { motion } from "framer-motion";
-import {
-  ArrowRight,
-  Landmark,
-  Map,
-  Leaf,
-  Briefcase,
-  Users,
-  Gavel,
-} from "lucide-react";
+import { ArrowRight, LayoutGrid } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
+import { DynamicIcon } from "@/components/icons/DynamicIcon";
 
-const categories = [
-  {
-    title: "History & Heritage",
-    description:
-      "From the Indus Valley to the Modern Republic, trace the deep historical roots of the subcontinent.",
-    icon: Landmark,
-    href: "/categories/history",
-    color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  },
-  {
-    title: "Geography & Ecology",
-    description:
-      "Explore the vast biodiversity, climate patterns, and geographic marvels from the Himalayas to the Indian Ocean.",
-    icon: Map,
-    href: "/categories/geography",
-    color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  },
-  {
-    title: "Economy & Markets",
-    description:
-      "Analyze the trajectory of emerging markets, infrastructure development, and key economic indicators.",
-    icon: Briefcase,
-    href: "/categories/economy",
-    color: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  },
-  {
-    title: "Arts & Culture",
-    description:
-      "Dive into classical literature, regional performing arts, architectural wonders, and linguistic diversity.",
-    icon: Users,
-    href: "/categories/culture",
-    color: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
-  },
-  {
-    title: "Polity & Governance",
-    description:
-      "Understand the structural pillars of the Constitution, public administration, and democratic processes.",
-    icon: Gavel,
-    href: "/categories/polity",
-    color: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
-  },
-  {
-    title: "Science & Innovation",
-    description:
-      "Discover the latest advancements in space exploration, agricultural technology, and defense systems.",
-    icon: Leaf,
-    href: "/categories/science",
-    color: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
-  },
+export type LandingCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  icon: string | null;
+  imageUrl: string | null;
+};
+
+const COLORS = [
+  "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+  "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+  "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
 ];
 
 const containerVariants = {
@@ -81,7 +41,9 @@ const itemVariants = {
   },
 };
 
-export function LandingCategories() {
+export function LandingCategories({ categories }: { categories: LandingCategory[] }) {
+  if (!categories || categories.length === 0) return null;
+
   return (
     <section className="relative overflow-hidden bg-background py-20 lg:py-32 border-t">
       <div className="container px-4 md:px-6 z-10 relative">
@@ -124,31 +86,38 @@ export function LandingCategories() {
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
         >
-          {categories.map((category) => (
-            <motion.div key={category.title} variants={itemVariants}>
-              <Link
-                href={category.href}
-                className="block h-full outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl"
-              >
-                <Card className="h-full bg-card hover:bg-muted/50 transition-colors border shadow-sm hover:shadow-md group relative overflow-hidden">
-                  <CardContent className="p-6">
-                    <div
-                      className={`mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl ${category.color} transition-transform group-hover:scale-110`}
-                    >
-                      <category.icon className="h-6 w-6" />
-                    </div>
-                    <h3 className="mb-2 font-bold text-xl tracking-tight group-hover:text-primary transition-colors">
-                      {category.title}
-                    </h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {category.description}
-                    </p>
-                  </CardContent>
-                  <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-primary/50 to-transparent transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
-                </Card>
-              </Link>
-            </motion.div>
-          ))}
+          {categories.map((category, index) => {
+            const color = COLORS[index % COLORS.length];
+            return (
+              <motion.div key={category.id} variants={itemVariants}>
+                <Link
+                  href={`/categories/${category.slug}`}
+                  className="block h-full outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl"
+                >
+                  <Card className="h-full bg-card hover:bg-muted/50 transition-colors border shadow-sm hover:shadow-md group relative overflow-hidden">
+                    <CardContent className="p-6">
+                      <div
+                        className={`mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl ${color} transition-transform group-hover:scale-110`}
+                      >
+                        {category.icon ? (
+                          <DynamicIcon name={category.icon} className="h-6 w-6" />
+                        ) : (
+                          <LayoutGrid className="h-6 w-6" /> // fallback
+                        )}
+                      </div>
+                      <h3 className="mb-2 font-bold text-xl tracking-tight group-hover:text-primary transition-colors">
+                        {category.name}
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
+                        {category.description || "Explore articles in this category."}
+                      </p>
+                    </CardContent>
+                    <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-primary/50 to-transparent transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
+                  </Card>
+                </Link>
+              </motion.div>
+            );
+          })}
         </motion.div>
       </div>
     </section>

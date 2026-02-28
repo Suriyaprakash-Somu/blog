@@ -31,6 +31,20 @@ export async function registerPublicRoutes(app: FastifyInstance) {
     label: "public.blogPosts",
   });
 
+  const { publicBlogCategoriesRoutes } = await import("../modules/blogCategories/public/index.js");
+  await registerWithPrefix(app, publicBlogCategoriesRoutes, {
+    prefix: PUBLIC_ROUTES.blogCategories,
+    basePrefix: ROUTE_PREFIXES.public,
+    label: "public.blogCategories",
+  });
+
+  const { publicBlogTagsRoutes } = await import("../modules/blogTags/public/index.js");
+  await registerWithPrefix(app, publicBlogTagsRoutes, {
+    prefix: PUBLIC_ROUTES.blogTags,
+    basePrefix: ROUTE_PREFIXES.public,
+    label: "public.blogTags",
+  });
+
   const { publicFeaturedRoutes } = await import("../modules/featured/public/index.js");
   await registerWithPrefix(app, publicFeaturedRoutes, {
     prefix: PUBLIC_ROUTES.featured,

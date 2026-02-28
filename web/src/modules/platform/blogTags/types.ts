@@ -3,6 +3,7 @@ export interface PlatformBlogTag {
   name: string;
   slug: string;
   description: string | null;
+  icon: string | null;
   imageFileId: string | null;
   metaTitle: string | null;
   metaDescription: string | null;

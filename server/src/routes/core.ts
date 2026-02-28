@@ -15,7 +15,7 @@ export async function registerCoreRoutes(app: FastifyInstance) {
   });
 
   app.get("/", async () => ({
-    message: "Livestock Manager API",
+    message: "Blog Manager API",
     version: "1.0.0",
   }));
 }

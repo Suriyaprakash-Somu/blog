@@ -36,6 +36,7 @@ import type {
   NavStackItem,
   SecondarySidebarConfig,
 } from "./types";
+import { DashboardNavbar } from "../layout/DashboardNavbar";
 
 /**
  * Main Sidebar component with navigation, search, and nested menus
@@ -396,76 +397,16 @@ export function Sidebar({
       </nav>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="flex justify-between items-center bg-card border-b px-6 py-3 shadow-sm">
-          <button
-            type="button"
-            onClick={toggleMobile}
-            className={`md:hidden p-2 ${RADIUS.md} bg-card shadow border`}
-            aria-label="Open menu"
-          >
-            <svg
-              className="w-5 h-5 text-foreground"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <title>Menu</title>
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
+        <DashboardNavbar
+          onLogout={onLogout ?? (() => {})}
+          toggleMobile={toggleMobile}
+          toggleSidebar={toggleSidebar}
+          collapsed={collapsed}
+          title={title}
+        />
 
-          {showCollapse && !mobileOpen && (
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              className={cn(
-                showPill,
-                "group z-10",
-                pillSize,
-                `${RADIUS.md} bg-card border shadow-lg h-9 w-9`,
-                "hidden md:flex items-center justify-center text-primary",
-                "transition-all duration-200",
-                "hover:bg-primary hover:text-primary-foreground",
-                "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-              )}
-              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {collapsed ? (
-                <ChevronRight
-                  size={20}
-                  className="m-auto transition-transform group-hover:translate-x-0.5"
-                />
-              ) : (
-                <ChevronLeft
-                  size={20}
-                  className="m-auto transition-transform group-hover:-translate-x-0.5"
-                />
-              )}
-            </button>
-          )}
-
-          <div className="flex gap-2">
-            <ThemeSwitch />
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={onLogout}
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <LogOut size={14} />
-                Logout
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <main className="flex-1 p-3 bg-background overflow-y-auto scrollbar-hide flex flex-col">
-          {children}
+        <main className="flex-1 p-4 md:p-6 bg-background/50 overflow-y-auto scrollbar-hide flex flex-col">
+          <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>
       </div>
     </div>

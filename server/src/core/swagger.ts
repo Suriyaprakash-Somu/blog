@@ -10,8 +10,8 @@ export async function setupSwagger(app: FastifyInstance) {
   await app.register(swagger, {
     openapi: {
       info: {
-        title: "Livestock Manager API",
-        description: "API documentation for Livestock Manager",
+        title: "Blog Manager API",
+        description: "API documentation for Blog Manager",
         version: "1.0.0",
       },
       servers: [{ url: "/" }],

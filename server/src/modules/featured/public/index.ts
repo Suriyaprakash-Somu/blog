@@ -1,5 +1,4 @@
 import type { FastifyPluginAsync, FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { z } from "zod";
 import { db } from "../../../db/index.js";
 import { featuredCollections, featuredItems } from "../featured.schema.js";
 import { blogPosts } from "../../blogPosts/blogPosts.schema.js";
@@ -26,7 +25,7 @@ export const publicFeaturedRoutes: FastifyPluginAsync = async (app: FastifyInsta
         .limit(1);
 
       if (!collection) {
-        return reply.status(404).send({ error: "Collection not found" });
+        return reply.status(404).send({ success: false, error: { message: "Collection not found" } });
       }
 
       // 2. Find the items
@@ -42,7 +41,13 @@ export const publicFeaturedRoutes: FastifyPluginAsync = async (app: FastifyInsta
         .orderBy(featuredItems.order);
 
       if (items.length === 0) {
-        return reply.send({ collection, items: [] });
+        return reply.send({
+          success: true,
+          data: {
+            collection,
+            items: [],
+          },
+        });
       }
 
       // 3. Group items by type to fetch entities in batches
@@ -53,13 +58,22 @@ export const publicFeaturedRoutes: FastifyPluginAsync = async (app: FastifyInsta
       // Fetch
       const [posts, categories, tags] = await Promise.all([
         postIds.length
-          ? db.select().from(blogPosts).where(inArray(blogPosts.id, postIds))
+          ? db
+              .select()
+              .from(blogPosts)
+              .where(and(inArray(blogPosts.id, postIds), eq(blogPosts.status, "published")))
           : Promise.resolve([]),
         categoryIds.length
-          ? db.select().from(blogCategories).where(inArray(blogCategories.id, categoryIds))
+          ? db
+              .select()
+              .from(blogCategories)
+              .where(and(inArray(blogCategories.id, categoryIds), eq(blogCategories.status, "active")))
           : Promise.resolve([]),
         tagIds.length
-          ? db.select().from(blogTags).where(inArray(blogTags.id, tagIds))
+          ? db
+              .select()
+              .from(blogTags)
+              .where(and(inArray(blogTags.id, tagIds), eq(blogTags.status, "active")))
           : Promise.resolve([]),
       ]);
 
@@ -87,8 +101,11 @@ export const publicFeaturedRoutes: FastifyPluginAsync = async (app: FastifyInsta
         .filter((item) => item.data); // Remove items where the underlying entity was deleted
 
       return reply.send({
-        collection,
-        items: enrichedItems,
+        success: true,
+        data: {
+          collection,
+          items: enrichedItems,
+        },
       });
     }
   );

@@ -10,8 +10,11 @@ import { platformBlogCategoriesApi } from "@/lib/api/platform-blog-categories";
 import { clientFetch } from "@/lib/client-fetch";
 import { Button } from "@/components/ui/button";
 import { Loader2, Sparkles } from "lucide-react";
+import { IconPicker } from "@/components/icons/IconPicker";
+import { Label } from "@/components/ui/label";
 import type { OperationComponentProps } from "@/components/dataTable/types";
 import type { PlatformBlogCategory } from "./types";
+import { revalidateCache } from "@/actions/cache-actions";
 
 const categoryFormSchema = z.object({
   name: z.string().min(2, "Name is required").describe("Category Name"),
@@ -38,8 +41,15 @@ const categoryFormSchema = z.object({
         accept: "image/jpeg,image/png,image/webp",
         minFiles: 0,
         maxFiles: 1,
+        uploadMode: "public",
       }),
     ),
+  icon: z.string().optional().describe(
+    JSON.stringify({
+      label: "Category Icon",
+      inputType: "icon-picker",
+    }),
+  ),
   metaTitle: z.string().optional().describe("SEO Meta Title"),
   metaDescription: z
     .string()
@@ -96,6 +106,8 @@ export function BlogCategoryForm({
       ? platformBlogCategoriesApi.update.endpoint({ id: data!.id })
       : platformBlogCategoriesApi.create.endpoint,
     revalidateTags: [platformBlogCategoriesApi.getList.key],
+    revalidateNextTags: ["landing"],
+    revalidatePaths: ["/", "/categories", "/blog"],
   });
 
   const handleGenerateWithAI = async () => {
@@ -140,6 +152,13 @@ export function BlogCategoryForm({
   const handleSubmit = async (values: CategoryFormData) => {
     try {
       await mutation.mutateAsync(values as CategoryFormData & { id?: string });
+
+      const paths = ["/", "/categories", `/categories/${values.slug}`, "/blog"];
+      if (isEdit && data?.slug && data.slug !== values.slug) {
+        paths.push(`/categories/${data.slug}`);
+      }
+      await revalidateCache({ tags: ["landing"], paths });
+
       toast.success(isEdit ? "Category updated" : "Category created");
       onSuccess();
     } catch (error) {
@@ -156,18 +175,20 @@ export function BlogCategoryForm({
       defaultValues={
         data
           ? {
-              name: data.name,
-              slug: data.slug,
-              description: data.description || "",
-              imageFileId: data.imageFileId || "",
-              metaTitle: data.metaTitle || "",
-              metaDescription: data.metaDescription || "",
-              metaKeywords: data.metaKeywords || "",
-              status: data.status,
-            }
+            name: data.name,
+            slug: data.slug,
+            description: data.description || "",
+            icon: data.icon || "",
+            imageFileId: data.imageFileId || "",
+            metaTitle: data.metaTitle || "",
+            metaDescription: data.metaDescription || "",
+            metaKeywords: data.metaKeywords || "",
+            status: data.status,
+          }
           : {
-              status: "active",
-            }
+            status: "active",
+            icon: "",
+          }
       }
       onSubmit={handleSubmit}
       submitLabel={isEdit ? "Update Category" : "Create Category"}

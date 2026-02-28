@@ -4,38 +4,20 @@ import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import gsap from "gsap";
 
-const stats = [
-  {
-    label: "Curated Articles",
-    value: 12500,
-    suffix: "+",
-    description: "Deep-dives spanning history to modern tech.",
-  },
-  {
-    label: "Verified Sources",
-    value: 850,
-    suffix: "+",
-    description: "Referencing national archives and peer-reviewed journals.",
-  },
-  {
-    label: "Active Researchers",
-    value: 45000,
-    suffix: "+",
-    description: "Students & academics using our data monthly.",
-  },
-  {
-    label: "Years of History",
-    value: 5000,
-    suffix: "+",
-    description: "Covering the subcontinent from the Indus Valley.",
-  },
-];
+export type LandingStat = {
+  label: string;
+  value: number;
+  suffix?: string;
+  description: string;
+};
 
-export function LandingStats() {
+export function LandingStats({ stats }: { stats: LandingStat[] }) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const countersRef = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
+    if (!stats || stats.length === 0) return;
+
     const ctx = gsap.context(() => {
       // Setup timeline for the number counters to run when scrolled into view
       // We will use IntersectionObserver to trigger the GSAP animation
@@ -83,7 +65,7 @@ export function LandingStats() {
     }, sectionRef);
 
     return () => ctx.revert();
-  }, []);
+  }, [stats]);
 
   return (
     <section
@@ -137,7 +119,7 @@ export function LandingStats() {
                   0
                 </div>
                 <span className="text-3xl font-bold text-primary-foreground/70">
-                  {stat.suffix}
+                  {stat.suffix ?? ""}
                 </span>
               </div>
               <h3 className="mt-4 text-xl font-semibold">{stat.label}</h3>

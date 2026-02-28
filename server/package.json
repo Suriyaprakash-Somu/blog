@@ -1,7 +1,7 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "Livestock Manager API Server",
+  "description": "Blog Manager API Server",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -20,6 +20,7 @@
     "db:studio": "npx tsx node_modules/drizzle-kit/bin.cjs studio",
     "db:reset": "tsx src/scripts/db-reset.ts",
     "db:reset+migrate": "npm run db:reset && npm run db:migrate",
+    "db:seed:landing": "tsx src/scripts/seed-landing.ts",
     "uploads:cleanup": "tsx src/scripts/uploads-cleanup.ts"
   },
   "dependencies": {
@@ -37,6 +38,7 @@
     "drizzle-orm": "^0.45.1",
     "drizzle-zod": "^0.8.3",
     "fastify": "^5.7.4",
+    "fastify-type-provider-zod": "^6.1.0",
     "jsonwebtoken": "^9.0.3",
     "lru-cache": "^11.2.5",
     "pg": "^8.17.2",

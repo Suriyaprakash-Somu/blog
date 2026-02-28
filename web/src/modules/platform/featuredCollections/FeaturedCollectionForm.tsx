@@ -138,6 +138,8 @@ function FeaturedCollectionFormInner({
       ? platformFeaturedCollectionsApi.update.endpoint({ id: initialData!.id })
       : platformFeaturedCollectionsApi.create.endpoint,
     revalidateTags: [platformFeaturedCollectionsApi.getList.key],
+    revalidateNextTags: ["landing"],
+    revalidatePaths: ["/"],
   });
 
   const handleSubmit = async (values: CollectionFormData) => {

@@ -16,6 +16,9 @@ import { uuidv7 } from "uuidv7";
 import { blogCategories } from "../blogCategories/blogCategories.schema.js";
 import { uploadedFiles } from "../uploads/uploadedFiles.schema.js";
 import { platformUser } from "../users/platform/platform.schema.js";
+import { tenantUser } from "../users/tenant/tenant.schema.js";
+import { blogPostTags } from "./blogPostTags.schema.js";
+import { blogPostSecondaryCategories } from "./blogPostSecondaryCategories.schema.js";
 
 /* ------------------------------------------------------------------ */
 /*  Types for JSONB columns                                           */
@@ -75,9 +78,8 @@ export const blogPosts = pgTable(
     contentImageFileIds: text("content_image_file_ids")
       .array()
       .default([]),
-    authorId: uuid("author_id").references(() => platformUser.id, {
-      onDelete: "set null",
-    }),
+    authorType: varchar("author_type", { length: 20 }).notNull().default("platform"),
+    authorId: uuid("author_id"),
 
     // Timestamps
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -95,7 +97,7 @@ export const blogPosts = pgTable(
 /*  Relations                                                         */
 /* ------------------------------------------------------------------ */
 
-export const blogPostsRelations = relations(blogPosts, ({ one }) => ({
+export const blogPostsRelations = relations(blogPosts, ({ one, many }) => ({
   category: one(blogCategories, {
     fields: [blogPosts.categoryId],
     references: [blogCategories.id],
@@ -104,10 +106,16 @@ export const blogPostsRelations = relations(blogPosts, ({ one }) => ({
     fields: [blogPosts.featuredImageFileId],
     references: [uploadedFiles.id],
   }),
-  author: one(platformUser, {
+  platformAuthor: one(platformUser, {
     fields: [blogPosts.authorId],
     references: [platformUser.id],
   }),
+  tenantAuthor: one(tenantUser, {
+    fields: [blogPosts.authorId],
+    references: [tenantUser.id],
+  }),
+  tags: many(blogPostTags),
+  secondaryCategories: many(blogPostSecondaryCategories),
 }));
 
 /* ------------------------------------------------------------------ */

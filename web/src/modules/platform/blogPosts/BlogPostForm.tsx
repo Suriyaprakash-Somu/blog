@@ -1,19 +1,25 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { SchemaForm } from "@/components/form/SchemaForm";
 import { type FormInstance } from "@/components/form/types";
 import { useApiMutation } from "@/hooks/useApiMutation";
+import { useApiQuery } from "@/hooks/useApiQuery";
 import { platformBlogPostsApi } from "@/lib/api/platform-blog-posts";
+import { platformBlogCategoriesApi } from "@/lib/api/platform-blog-categories";
+import { platformBlogTagsApi } from "@/lib/api/platform-blog-tags";
 import { clientFetch } from "@/lib/client-fetch";
 import { Button } from "@/components/ui/button";
 import { Loader2, Sparkles } from "lucide-react";
 import type { OperationComponentProps } from "@/components/dataTable/types";
 import type { PlatformBlogPost } from "./types";
+import type { PlatformBlogCategory } from "@/modules/platform/blogCategories/types";
+import type { PlatformBlogTag } from "@/modules/platform/blogTags/types";
+import { revalidateCache } from "@/actions/cache-actions";
 
-const postFormSchema = z.object({
+const baseSchema = z.object({
   title: z.string().min(2, "Title is required").describe("Post Title"),
   slug: z
     .string()
@@ -70,6 +76,7 @@ const postFormSchema = z.object({
         accept: "image/jpeg,image/png,image/webp",
         minFiles: 0,
         maxFiles: 1,
+        uploadMode: "public",
       }),
     ),
   faq: z
@@ -103,7 +110,11 @@ const postFormSchema = z.object({
     .describe("SEO Meta Keywords (comma separated)"),
 });
 
-type PostFormData = z.infer<typeof postFormSchema>;
+type PostFormData = z.infer<typeof baseSchema> & {
+  categoryId?: string;
+  secondaryCategoryIds?: string[];
+  tagIds?: string[];
+};
 
 interface GeneratedData {
   slug: string;
@@ -118,10 +129,66 @@ interface GeneratedData {
 export function BlogPostForm({
   data,
   onSuccess,
-}: OperationComponentProps<PlatformBlogPost>) {
+}: OperationComponentProps<
+  PlatformBlogPost & { tagIds?: string[]; secondaryCategoryIds?: string[] }
+>) {
   const formRef = useRef<FormInstance>(null);
   const isEdit = Boolean(data);
   const [generating, setGenerating] = useState(false);
+
+  const { data: categoriesData } = useApiQuery<{ id: string; name: string }[]>({
+    ...platformBlogCategoriesApi.options,
+    requireOrganization: false,
+  });
+  const { data: tagsData } = useApiQuery<{ id: string; name: string }[]>({
+    ...platformBlogTagsApi.options,
+    requireOrganization: false,
+  });
+
+  const categoryOptions = useMemo(
+    () => categoriesData?.map((c) => ({ label: c.name, value: c.id })) || [],
+    [categoriesData],
+  );
+
+  const tagOptions = useMemo(
+    () => tagsData?.map((t) => ({ label: t.name, value: t.id })) || [],
+    [tagsData],
+  );
+
+  const schema = useMemo(() => {
+    return baseSchema.extend({
+      categoryId: z
+        .string()
+        .optional()
+        .describe(
+          JSON.stringify({
+            label: "Primary Category",
+            inputType: "select",
+            options: categoryOptions,
+          }),
+        ),
+      secondaryCategoryIds: z
+        .array(z.string())
+        .optional()
+        .describe(
+          JSON.stringify({
+            label: "Secondary Categories",
+            inputType: "multiselect",
+            options: categoryOptions,
+          }),
+        ),
+      tagIds: z
+        .array(z.string())
+        .optional()
+        .describe(
+          JSON.stringify({
+            label: "Tags",
+            inputType: "multiselect",
+            options: tagOptions,
+          }),
+        ),
+    });
+  }, [categoryOptions, tagOptions]);
 
   const mutation = useApiMutation<
     PlatformBlogPost,
@@ -132,6 +199,8 @@ export function BlogPostForm({
       ? platformBlogPostsApi.update.endpoint({ id: data!.id })
       : platformBlogPostsApi.create.endpoint,
     revalidateTags: [platformBlogPostsApi.getList.key],
+    revalidateNextTags: ["landing"],
+    revalidatePaths: ["/", "/blog", "/categories", "/tags"],
   });
 
   const handleGenerateWithAI = async () => {
@@ -212,6 +281,14 @@ export function BlogPostForm({
   const handleSubmit = async (values: PostFormData) => {
     try {
       await mutation.mutateAsync(values as PostFormData & { id?: string });
+
+      // Also revalidate detail pages that depend on slug.
+      const paths = ["/", "/blog", `/blog/${values.slug}`];
+      if (isEdit && data?.slug && data.slug !== values.slug) {
+        paths.push(`/blog/${data.slug}`);
+      }
+      await revalidateCache({ tags: ["landing"], paths });
+
       toast.success(isEdit ? "Post updated" : "Post created");
       onSuccess();
     } catch (error) {
@@ -224,27 +301,30 @@ export function BlogPostForm({
   return (
     <SchemaForm
       formRef={formRef}
-      schema={postFormSchema}
+      schema={schema}
       defaultValues={
         data
           ? {
-              title: data.title,
-              slug: data.slug,
-              excerpt: data.excerpt || "",
-              content: data.content || "",
-              status: data.status,
-              isFeatured: data.isFeatured,
-              featuredImageFileId: data.featuredImageFileId || "",
-              faq: data.faq || [],
-              metaTitle: data.metaTitle || "",
-              metaDescription: data.metaDescription || "",
-              metaKeywords: data.metaKeywords || "",
-            }
+            title: data.title,
+            slug: data.slug,
+            excerpt: data.excerpt || "",
+            content: data.content || "",
+            status: data.status,
+            categoryId: data.categoryId || "",
+            secondaryCategoryIds: data.secondaryCategoryIds || [],
+            tagIds: data.tagIds || [],
+            isFeatured: data.isFeatured,
+            featuredImageFileId: data.featuredImageFileId || "",
+            faq: data.faq || [],
+            metaTitle: data.metaTitle || "",
+            metaDescription: data.metaDescription || "",
+            metaKeywords: data.metaKeywords || "",
+          }
           : {
-              status: "draft",
-              isFeatured: false,
-              faq: [],
-            }
+            status: "draft",
+            isFeatured: false,
+            faq: [],
+          }
       }
       onSubmit={handleSubmit}
       submitLabel={isEdit ? "Update Post" : "Create Post"}

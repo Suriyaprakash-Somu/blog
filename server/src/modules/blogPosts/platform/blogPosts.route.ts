@@ -8,7 +8,8 @@ import { createZodSchemas } from "../../../utils/schemaFactory.js";
 import { uploadedFiles } from "../../uploads/uploadedFiles.schema.js";
 import { blogPosts } from "../blogPosts.schema.js";
 import { blogPostTags } from "../blogPostTags.schema.js";
-import { chatCompletionJSON } from "../../settings/llm/completion.js";
+import { blogPostSecondaryCategories } from "../blogPostSecondaryCategories.schema.js";
+import { chatCompletion } from "../../settings/llm/completion.js";
 import {
   buildBlogPostPrompt,
   blogPostGeneratedSchema,
@@ -112,6 +113,7 @@ const { insertSchema, updateSchema } = createZodSchemas(blogPosts, {
   overrides: {
     featuredImageFileId: z.string().uuid().optional(),
     categoryId: z.string().uuid().optional(),
+    secondaryCategoryIds: z.array(z.string().uuid()).optional(),
     authorId: z.string().uuid().optional(),
     faq: z
       .array(z.object({ question: z.string(), answer: z.string() }))
@@ -188,6 +190,26 @@ async function syncTags(
   }
 }
 
+async function syncSecondaryCategories(
+  postId: string,
+  categoryIds: string[] | undefined,
+  ctx: Pick<HookContext, "tx">,
+) {
+  if (!categoryIds) return;
+
+  // Delete existing
+  await ctx.tx
+    .delete(blogPostSecondaryCategories)
+    .where(eq(blogPostSecondaryCategories.postId, postId));
+
+  // Insert new
+  if (categoryIds.length > 0) {
+    await ctx.tx.insert(blogPostSecondaryCategories).values(
+      categoryIds.map((categoryId) => ({ postId, categoryId })),
+    );
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /*  CRUD routes                                                       */
 /* ------------------------------------------------------------------ */
@@ -231,9 +253,10 @@ const crudRoutes = createCrudRoutes({
   },
 
   beforeCreate: async (data, ctx) => {
-    // Strip tagIds before insert (handled separately)
-    const { tagIds, ...postData } = data as Record<string, unknown> & {
+    // Strip tagIds and secondaryCategoryIds before insert (handled separately)
+    const { tagIds, secondaryCategoryIds, ...postData } = data as Record<string, unknown> & {
       tagIds?: string[];
+      secondaryCategoryIds?: string[];
     };
     if (postData.featuredImageFileId) {
       await assertPlatformUploadUsable(
@@ -241,6 +264,11 @@ const crudRoutes = createCrudRoutes({
         ctx,
       );
     }
+    
+    // Assign author to current platform user
+    postData.authorId = (ctx.req as any).platformUser?.user?.id;
+    postData.authorType = "platform";
+
     return enrichWithComputed(postData) as typeof data;
   },
 
@@ -264,11 +292,17 @@ const crudRoutes = createCrudRoutes({
       | string[]
       | undefined;
     await syncTags(result.id, tagIds, ctx);
+
+    // Sync secondary categories
+    const secondaryCategoryIds = (data as Record<string, unknown>)
+      .secondaryCategoryIds as string[] | undefined;
+    await syncSecondaryCategories(result.id, secondaryCategoryIds, ctx);
   },
 
   beforeUpdate: async (data, existing, ctx) => {
-    const { tagIds, ...postData } = data as Record<string, unknown> & {
+    const { tagIds, secondaryCategoryIds, ...postData } = data as Record<string, unknown> & {
       tagIds?: string[];
+      secondaryCategoryIds?: string[];
     };
 
     // Handle featured image swap
@@ -309,6 +343,9 @@ const crudRoutes = createCrudRoutes({
     // Sync tags
     await syncTags(existing.id, tagIds, ctx);
 
+    // Sync secondary categories
+    await syncSecondaryCategories(existing.id, secondaryCategoryIds, ctx);
+
     return enrichWithComputed(postData) as typeof data;
   },
 
@@ -331,6 +368,11 @@ const crudRoutes = createCrudRoutes({
     await ctx.tx
       .delete(blogPostTags)
       .where(eq(blogPostTags.postId, existing.id));
+
+    // Delete secondary category associations
+    await ctx.tx
+      .delete(blogPostSecondaryCategories)
+      .where(eq(blogPostSecondaryCategories.postId, existing.id));
   },
 });
 
@@ -355,22 +397,124 @@ const blogPostsGenerateRoute: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { title } = generateBodySchema.parse(request.body);
       try {
+        console.log(`[GENERATION] Starting AI blog post generation for title: "${title}"`);
         request.log.info({ title }, "Starting AI blog post generation");
         const messages = buildBlogPostPrompt(title);
-        
+
+        console.log(`[GENERATION] Sending request to LLM (chatCompletion)...`);
         request.log.info("Sending request to LLM...");
-        const result = await chatCompletionJSON<BlogPostGenerated>({
+        const rawText = await chatCompletion({
           messages,
           temperature: 0.7,
-          maxTokens: 8000,
+          maxTokens: 16000,
+          jsonMode: true,
         });
-        
-        request.log.info("Received JSON from LLM, validating schema...");
-        const validated = blogPostGeneratedSchema.parse(result);
-        
+
+        console.log(`[GENERATION] Raw text received. Length:`, rawText.length);
+
+        let text = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+        const firstBrace = text.indexOf('{');
+        const lastBrace = text.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          text = text.substring(firstBrace, lastBrace + 1);
+        }
+
+        let parsedData: any = null;
+        try {
+          parsedData = JSON.parse(text);
+          console.log(`[GENERATION] Strict JSON parse successful.`);
+        } catch (e) {
+          console.warn(`[GENERATION] Strict JSON parsing failed. Attempting regex fallback...`);
+
+          const extractField = (fieldName: string) => {
+            const regex = new RegExp(`"${fieldName}"\\s*:\\s*"((?:[^"\\\\]|\\\\[\\s\\S])*)(?:"|$)`, 'i');
+            const match = text.match(regex);
+            if (match && match[1]) {
+              return match[1]
+                .replace(/\\"/g, '"')
+                .replace(/\\n/g, '\n')
+                .replace(/\\t/g, '\t')
+                .replace(/\\\\/g, '\\');
+            }
+            return "";
+          };
+
+          const extractFaqList = () => {
+            try {
+              // Grab everything from "faq": [ ... up to the end of the text
+              const faqMatch = text.match(/"faq"\s*:\s*(\[\s*\{[\s\S]*)/i);
+              if (faqMatch && faqMatch[1]) {
+                let faqStr = faqMatch[1];
+                // Try to close JSON cleanly if truncated
+                let bracketsCount = (faqStr.match(/\{/g) || []).length;
+                let closingBracketsCount = (faqStr.match(/\}/g) || []).length;
+
+                // If not balanced, try terminating gracefully
+                if (bracketsCount > closingBracketsCount) {
+                  faqStr = faqStr.substring(0, faqStr.lastIndexOf('}'));
+                  faqStr += "}]";
+                }
+
+                // Strip trailing comma before list closure if any
+                faqStr = faqStr.replace(/,\s*\]/, ']');
+
+                try {
+                  const parsed = JSON.parse(faqStr);
+                  if (Array.isArray(parsed)) return parsed;
+                } catch (fallbackParseErr) {
+                  // If still malformed, just string match question/answer explicitly
+                  const arr: any[] = [];
+                  const qRegex = /"question"\s*:\s*"((?:[^"\\\\]|\\\\[\\s\\S])*)"\s*,\s*"answer"\s*:\s*"((?:[^"\\\\]|\\\\[\\s\\S])*)"/gi;
+                  let qMatch;
+                  while ((qMatch = qRegex.exec(faqStr)) !== null) {
+                    arr.push({
+                      question: qMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n'),
+                      answer: qMatch[2].replace(/\\"/g, '"').replace(/\\n/g, '\n')
+                    });
+                  }
+                  return arr;
+                }
+              }
+            } catch (ignore) { }
+            return [];
+          };
+
+          const extractedData = {
+            slug: extractField("slug"),
+            metaTitle: extractField("metaTitle"),
+            metaDescription: extractField("metaDescription"),
+            metaKeywords: extractField("metaKeywords"),
+            excerpt: extractField("excerpt"),
+            content: extractField("content"),
+            faq: extractFaqList()
+          };
+
+          if (extractedData.content || extractedData.metaTitle) {
+            console.log(`[GENERATION] Regex fallback extracted content!`);
+            parsedData = extractedData;
+          } else {
+            console.log(`[GENERATION] Ultimate fallback: returning raw text as content.`);
+            parsedData = {
+              slug: "",
+              metaTitle: "",
+              metaDescription: "",
+              metaKeywords: "",
+              excerpt: "",
+              content: text,
+              faq: []
+            };
+          }
+        }
+
+        console.log(`[GENERATION] Schema validation running...`);
+        request.log.info("Validating schema...");
+        const validated = blogPostGeneratedSchema.parse(parsedData);
+
+        console.log(`[GENERATION] Schema validation successful.`);
         request.log.info("AI generation successful");
         return { success: true, data: validated };
       } catch (err) {
+        console.error(`[GENERATION ERROR] Request failed:`, err);
         request.log.error({ err }, "AI generation failed");
         const message =
           err instanceof Error ? err.message : "AI generation failed";

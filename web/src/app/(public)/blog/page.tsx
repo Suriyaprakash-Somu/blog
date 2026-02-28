@@ -1,36 +1,55 @@
-"use client";
-
-import { useQuery } from "@tanstack/react-query";
-import { publicBlogPostsApi } from "@/lib/api/public-blog-posts";
-import { clientFetch } from "@/lib/client-fetch";
 import Link from "next/link";
 import { format } from "date-fns";
-import { Loader2 } from "lucide-react";
+import type { Metadata } from "next";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { PublicBreadcrumbs } from "@/components/layout/PublicBreadcrumbs";
+import { absoluteUrl, breadcrumbList } from "@/lib/seo/jsonld";
+import { getPublicImageUrl } from "@/lib/utils";
 
-interface PublicPostListing {
+export const revalidate = 60 * 60 * 3;
+
+export const metadata: Metadata = {
+  title: "Blog",
+  description: "Browse the latest posts, announcements, and tutorials.",
+};
+
+type PublicPostListing = {
   id: string;
   title: string;
   slug: string;
-  excerpt: string;
+  excerpt: string | null;
   publishedAt: string | null;
   readTimeMinutes: number;
   isFeatured: boolean;
   featuredImageUrl: string | null;
+  authorName: string | null;
+};
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const apiBase = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3020";
+  const res = await fetch(`${apiBase}${url}`, { next: { revalidate } });
+  if (!res.ok) throw new Error(`Request failed: ${url}`);
+  return (await res.json()) as T;
 }
 
-export default function BlogIndexPage() {
-  const { data: posts, isLoading } = useQuery({
-    queryKey: [publicBlogPostsApi.getList.key],
-    queryFn: async () => {
-      const res = await clientFetch<{ data: PublicPostListing[] }>(
-        publicBlogPostsApi.getList.endpoint,
-      );
-      return res.data;
-    },
-  });
+export default async function BlogIndexPage() {
+  const res = await fetchJson<{ success: true; data: PublicPostListing[] }>(
+    "/api/public/blog-posts",
+  ).catch(() => ({ success: true as const, data: [] }));
+
+  const posts = res.data ?? [];
+
+  const breadcrumbs = breadcrumbList([
+    { name: "Home", url: absoluteUrl("/") },
+    { name: "Blog", url: absoluteUrl("/blog") },
+  ]);
 
   return (
     <div className="container mx-auto px-4 py-16 max-w-5xl">
+      <JsonLd data={breadcrumbs} />
+
+      <PublicBreadcrumbs />
+
       <div className="text-center mb-12">
         <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl mb-4">
           Latest Insights & Articles
@@ -40,17 +59,13 @@ export default function BlogIndexPage() {
         </p>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center p-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : posts?.length === 0 ? (
+      {posts.length === 0 ? (
         <div className="text-center p-12 bg-secondary/20 rounded-lg">
           <p className="text-muted-foreground">No posts published yet.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {posts?.map((post) => (
+          {posts.map((post) => (
             <Link
               key={post.id}
               href={`/blog/${post.slug}`}
@@ -59,9 +74,10 @@ export default function BlogIndexPage() {
               {post.featuredImageUrl ? (
                 <div className="aspect-video w-full overflow-hidden bg-muted">
                   <img
-                    src={post.featuredImageUrl}
+                    src={getPublicImageUrl(post.featuredImageUrl) ?? undefined}
                     alt={post.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
                   />
                 </div>
               ) : (
@@ -82,6 +98,14 @@ export default function BlogIndexPage() {
                       ? format(new Date(post.publishedAt), "MMMM d, yyyy")
                       : "Recently"}
                   </time>
+                  {post.authorName && (
+                    <>
+                      <span className="text-muted-foreground/30">•</span>
+                      <span className="text-muted-foreground">
+                        {post.authorName}
+                      </span>
+                    </>
+                  )}
                   <span className="relative z-10 rounded-full bg-secondary px-3 py-1.5 font-medium text-secondary-foreground">
                     {post.readTimeMinutes || 5} min read
                   </span>
@@ -92,7 +116,7 @@ export default function BlogIndexPage() {
                 </h3>
 
                 <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted-foreground flex-1">
-                  {post.excerpt}
+                  {post.excerpt ?? ""}
                 </p>
               </div>
             </Link>

@@ -25,6 +25,7 @@ export const blogTags = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 255 }).notNull(),
     description: text("description"),
+    icon: varchar("icon", { length: 50 }),
     status: varchar("status", { length: 20 }).notNull().default("active"), // active, inactive
 
     // Image (optional feature image)

@@ -25,6 +25,7 @@ import { FieldArray } from "./FieldArray";
 import { FieldErrors } from "./FieldErrors";
 import { FileUploadField } from "./FileUploadField";
 import { MarkdownEditor } from "./MarkdownEditor";
+import { IconPicker } from "../icons/IconPicker";
 import type {
   ArrayFieldConfig,
   ArrayItemWithLocalId,
@@ -397,6 +398,18 @@ export function FieldRenderer({
         </div>
       );
     }
+
+    case "icon-picker":
+      return (
+        <div>
+          <IconPicker
+            value={value as string | undefined}
+            onChange={onChange}
+            className="w-full h-10"
+          />
+          <FieldErrors errors={fieldErrors} />
+        </div>
+      );
 
     default:
       return null;

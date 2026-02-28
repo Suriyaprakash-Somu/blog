@@ -26,7 +26,8 @@ export type FieldType =
   | "array"
   | "autocomplete"
   | "map-picker"
-  | "markdown";
+  | "markdown"
+  | "icon-picker";
 
 /**
  * Option for select/radio/multiselect fields
@@ -51,12 +52,12 @@ export interface GroupedFieldOptions {
 export interface VisibilityCondition {
   field: string;
   operator:
-    | "equals"
-    | "notEquals"
-    | "contains"
-    | "notContains"
-    | "greaterThan"
-    | "lessThan";
+  | "equals"
+  | "notEquals"
+  | "contains"
+  | "notContains"
+  | "greaterThan"
+  | "lessThan";
   value: unknown;
 }
 
@@ -173,6 +174,10 @@ export interface MarkdownFieldConfig extends BaseFieldConfig {
   height?: number;
 }
 
+export interface IconPickerFieldConfig extends BaseFieldConfig {
+  type: "icon-picker";
+}
+
 
 export interface MapValue {
   lat: number;
@@ -197,7 +202,8 @@ export type FieldConfig =
   | FileFieldConfig
   | ArrayFieldConfig
   | MapPickerFieldConfig
-  | MarkdownFieldConfig;
+  | MarkdownFieldConfig
+  | IconPickerFieldConfig;
 
 // =============================================================================
 // Form Values
@@ -221,24 +227,26 @@ export interface ArrayItemWithLocalId {
  */
 export type FieldValueByConfig<C extends FieldConfig> =
   C extends TextFieldConfig
-    ? string
-    : C extends NumberFieldConfig
-      ? string
-      : C extends DateFieldConfig
-        ? string
-        : C extends SelectFieldConfig
-          ? string | number
-          : C extends MultiSelectFieldConfig
-            ? Array<string | number>
-            : C extends BooleanFieldConfig
-              ? boolean
-              : C extends FileFieldConfig
-                ? string | string[] | null
-                : C extends ArrayFieldConfig
-                  ? ArrayItemWithLocalId[]
-                  : C extends MapPickerFieldConfig
-                    ? MapValue | null
-                    : string;
+  ? string
+  : C extends NumberFieldConfig
+  ? string
+  : C extends DateFieldConfig
+  ? string
+  : C extends SelectFieldConfig
+  ? string | number
+  : C extends MultiSelectFieldConfig
+  ? Array<string | number>
+  : C extends BooleanFieldConfig
+  ? boolean
+  : C extends FileFieldConfig
+  ? string | string[] | null
+  : C extends ArrayFieldConfig
+  ? ArrayItemWithLocalId[]
+  : C extends MapPickerFieldConfig
+  ? MapValue | null
+  : C extends IconPickerFieldConfig
+  ? string
+  : string;
 
 // =============================================================================
 // Validation

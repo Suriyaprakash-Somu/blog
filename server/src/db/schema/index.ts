@@ -41,6 +41,7 @@ export * from "../../modules/blogTags/blogTags.schema.js";
 // Blog Posts
 export * from "../../modules/blogPosts/blogPosts.schema.js";
 export * from "../../modules/blogPosts/blogPostTags.schema.js";
+export * from "../../modules/blogPosts/blogPostSecondaryCategories.schema.js";
 
 // Settings
 export * from "./settings.js";

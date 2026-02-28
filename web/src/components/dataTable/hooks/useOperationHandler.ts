@@ -67,6 +67,8 @@ export function useOperationHandler<TData>({
     },
     method: operation?.api?.method ?? "POST",
     organizationId,
+    revalidateNextTags: operation?.api?.revalidateNextTags ?? [],
+    revalidatePaths: operation?.api?.revalidatePaths ?? [],
     onSuccess: (data: unknown) => {
       const message =
         typeof data === "object" && data && "message" in data

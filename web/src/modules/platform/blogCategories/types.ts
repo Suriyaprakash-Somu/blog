@@ -3,6 +3,7 @@ export interface PlatformBlogCategory {
   name: string;
   slug: string;
   description: string | null;
+  icon: string | null;
   status: "active" | "inactive";
   imageFileId: string | null;
   metaTitle: string | null;

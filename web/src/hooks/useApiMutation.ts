@@ -26,6 +26,8 @@ export interface UseApiMutationConfig<TData, TVariables, TError = Error> {
   onError?: (error: TError, variables: TVariables, context: unknown) => void;
   /** Tags/query keys to invalidate on success (for React Query) */
   revalidateTags?: string[];
+  /** Next.js cache tags to revalidate on success (server-side) */
+  revalidateNextTags?: string[];
   /** Paths to revalidate on success (for Next.js page cache) */
   revalidatePaths?: string[];
   /** Additional react-query mutation options */
@@ -81,6 +83,7 @@ export function useApiMutation<TData, TVariables, TError = Error>(
     onSuccess,
     onError,
     revalidateTags = [],
+    revalidateNextTags = [],
     revalidatePaths = [],
     options,
   } = config;
@@ -102,10 +105,10 @@ export function useApiMutation<TData, TVariables, TError = Error>(
       }
       
       // Revalidate Next.js cache for paths/tags (server-side)
-      if (revalidatePaths.length > 0) {
-        await revalidateCache({ paths: revalidatePaths });
+      if (revalidatePaths.length > 0 || revalidateNextTags.length > 0) {
+        await revalidateCache({ paths: revalidatePaths, tags: revalidateNextTags });
       }
-      
+       
       onSuccess?.(data, variables, context);
     },
     onError,

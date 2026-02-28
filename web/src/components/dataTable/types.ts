@@ -108,6 +108,10 @@ export interface BaseOperationConfig<TData = unknown> {
     endpoint: string;
     method?: "POST" | "PUT" | "DELETE" | "PATCH"; // GET removed as it is not a mutation
     key: string | readonly unknown[];
+    /** Next.js cache tags to revalidate after mutation */
+    revalidateNextTags?: string[];
+    /** Next.js paths to revalidate after mutation */
+    revalidatePaths?: string[];
   };
 
   /** Option 3: Custom function handler for client-side logic */

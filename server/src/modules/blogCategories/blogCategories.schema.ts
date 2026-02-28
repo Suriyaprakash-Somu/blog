@@ -11,6 +11,8 @@ import {
 import { uuidv7 } from "uuidv7";
 
 import { uploadedFiles } from "../uploads/uploadedFiles.schema.js";
+import { blogPosts } from "../blogPosts/blogPosts.schema.js";
+import { blogPostSecondaryCategories } from "../blogPosts/blogPostSecondaryCategories.schema.js";
 
 /**
  * Blog Categories - Platform-level global categories for blogs
@@ -26,6 +28,7 @@ export const blogCategories = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 255 }).notNull(),
     description: text("description"),
+    icon: varchar("icon", { length: 50 }),
     status: varchar("status", { length: 20 }).notNull().default("active"), // active, inactive
 
     // Image (optional feature image)
@@ -51,11 +54,13 @@ export const blogCategories = pgTable(
 );
 
 // Relations
-export const blogCategoriesRelations = relations(blogCategories, ({ one }) => ({
+export const blogCategoriesRelations = relations(blogCategories, ({ one, many }) => ({
   image: one(uploadedFiles, {
     fields: [blogCategories.imageFileId],
     references: [uploadedFiles.id],
   }),
+  posts: many(blogPosts),
+  secondaryPosts: many(blogPostSecondaryCategories),
 }));
 
 // Types

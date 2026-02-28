@@ -14,6 +14,9 @@ import {
 import { ThemeSwitch } from "@/components/theme-switch";
 
 const navLinks = [
+  { name: "Blog", href: "/blog" },
+  { name: "Categories", href: "/categories" },
+  { name: "Tags", href: "/tags" },
   { name: "Features", href: "#features" },
   { name: "About", href: "#about" },
   { name: "Contact", href: "#contact" },
@@ -29,7 +32,7 @@ export function LandingHeader() {
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
             <span className="text-xl font-bold tracking-tight text-primary">
-              Livestock Manager
+              Blog Manager
             </span>
           </Link>
         </div>

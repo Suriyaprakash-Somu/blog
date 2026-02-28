@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Sparkles } from "lucide-react";
 import type { OperationComponentProps } from "@/components/dataTable/types";
 import type { PlatformBlogTag } from "./types";
+import { revalidateCache } from "@/actions/cache-actions";
 
 const tagFormSchema = z.object({
   name: z.string().min(2, "Name is required").describe("Tag Name"),
@@ -35,8 +36,15 @@ const tagFormSchema = z.object({
         accept: "image/jpeg,image/png,image/webp",
         minFiles: 0,
         maxFiles: 1,
+        uploadMode: "public",
       }),
     ),
+  icon: z.string().optional().describe(
+    JSON.stringify({
+      label: "Tag Icon",
+      inputType: "icon-picker",
+    }),
+  ),
   metaTitle: z.string().optional().describe("SEO Meta Title"),
   metaDescription: z
     .string()
@@ -93,6 +101,8 @@ export function BlogTagForm({
       ? platformBlogTagsApi.update.endpoint({ id: data!.id })
       : platformBlogTagsApi.create.endpoint,
     revalidateTags: [platformBlogTagsApi.getList.key],
+    revalidateNextTags: ["landing"],
+    revalidatePaths: ["/", "/tags", "/blog"],
   });
 
   const handleGenerateWithAI = async () => {
@@ -137,6 +147,13 @@ export function BlogTagForm({
   const handleSubmit = async (values: TagFormData) => {
     try {
       await mutation.mutateAsync(values as TagFormData & { id?: string });
+
+      const paths = ["/", "/tags", `/tags/${values.slug}`, "/blog"];
+      if (isEdit && data?.slug && data.slug !== values.slug) {
+        paths.push(`/tags/${data.slug}`);
+      }
+      await revalidateCache({ tags: ["landing"], paths });
+
       toast.success(isEdit ? "Tag updated" : "Tag created");
       onSuccess();
     } catch (error) {
@@ -153,18 +170,20 @@ export function BlogTagForm({
       defaultValues={
         data
           ? {
-              name: data.name,
-              slug: data.slug,
-              description: data.description || "",
-              imageFileId: data.imageFileId || "",
-              metaTitle: data.metaTitle || "",
-              metaDescription: data.metaDescription || "",
-              metaKeywords: data.metaKeywords || "",
-              status: data.status,
-            }
+            name: data.name,
+            slug: data.slug,
+            description: data.description || "",
+            icon: data.icon || "",
+            imageFileId: data.imageFileId || "",
+            metaTitle: data.metaTitle || "",
+            metaDescription: data.metaDescription || "",
+            metaKeywords: data.metaKeywords || "",
+            status: data.status,
+          }
           : {
-              status: "active",
-            }
+            status: "active",
+            icon: "",
+          }
       }
       onSubmit={handleSubmit}
       submitLabel={isEdit ? "Update Tag" : "Create Tag"}

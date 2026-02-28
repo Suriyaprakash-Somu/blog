@@ -4,8 +4,10 @@ import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/dataTable/DataTable";
 import { platformBlogTagsApi } from "@/lib/api/platform-blog-tags";
+import { DynamicIcon } from "@/components/icons/DynamicIcon";
 import { BlogTagForm } from "./BlogTagForm";
 import type { PlatformBlogTag } from "./types";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const tagFilterSchema = z.object({
   name: z.string().optional().describe("Name"),
@@ -16,12 +18,10 @@ const tagFilterSchema = z.object({
 export function ManageBlogTagsPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Blog Tags</h1>
-        <p className="mt-2 text-muted-foreground">
-          Manage global blog tags across the platform.
-        </p>
-      </div>
+      <PageHeader
+        title="Blog Tags"
+        description="Manage global blog tags across the platform."
+      />
 
       <DataTable<PlatformBlogTag>
         tag={platformBlogTagsApi.getList.key}
@@ -42,10 +42,27 @@ export function ManageBlogTagsPage() {
                 accessorKey: "name",
                 header: "Tag & Slug",
                 cell: ({ row }) => (
-                  <div>
-                    <div className="font-medium">{row.original.name}</div>
-                    <div className="max-w-[320px] truncate text-xs text-muted-foreground">
-                      #{row.original.slug}
+                  <div className="flex items-center gap-3">
+                    {row.original.icon ? (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border bg-muted/50">
+                        <DynamicIcon
+                          name={row.original.icon}
+                          size={20}
+                          className="text-muted-foreground"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border bg-muted/50">
+                        <span className="text-xs text-muted-foreground">-</span>
+                      </div>
+                    )}
+                    <div>
+                      <div className="font-medium text-base">
+                        {row.original.name}
+                      </div>
+                      <div className="max-w-[320px] truncate text-xs text-muted-foreground">
+                        #{row.original.slug}
+                      </div>
                     </div>
                   </div>
                 ),
@@ -95,6 +112,8 @@ export function ManageBlogTagsPage() {
               endpoint: platformBlogTagsApi.delete.endpoint,
               method: platformBlogTagsApi.delete.method,
               key: platformBlogTagsApi.delete.key,
+              revalidateNextTags: ["landing"],
+              revalidatePaths: ["/", "/tags", "/blog"],
             },
             confirmation: {
               title: "Delete Tag",

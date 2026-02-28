@@ -4,6 +4,11 @@ export const platformBlogCategoriesApi = {
     endpoint: "/api/platform/blog-categories",
     method: "GET" as const,
   },
+  options: {
+    key: "platform-blog-categories-options",
+    endpoint: "/api/platform/blog-categories/options",
+    method: "GET" as const,
+  },
   getOne: {
     key: "platform-blog-categories",
     endpoint: (data: { id: string }) => `/api/platform/blog-categories/${data.id}`,

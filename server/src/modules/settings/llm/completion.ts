@@ -59,6 +59,7 @@ function openaiCompatible(baseUrl: string): ProviderCaller {
       if (opts.maxTokens) body.max_tokens = opts.maxTokens;
       if (opts.jsonMode) body.response_format = { type: "json_object" };
 
+      console.log(`[LLM PROVIDER] Calling OpenAI-compatible endpoint at ${baseUrl}...`);
       const res = await fetch(`${baseUrl}/v1/chat/completions`, {
         method: "POST",
         headers: {
@@ -99,6 +100,7 @@ function anthropicCaller(): ProviderCaller {
       };
       if (systemMsg) body.system = systemMsg.content;
 
+      console.log(`[LLM PROVIDER] Calling Anthropic API...`);
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -149,6 +151,7 @@ function googleCaller(): ProviderCaller {
         };
       }
 
+      console.log(`[LLM PROVIDER] Calling Google GenAI API...`);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
       const res = await fetch(url, {
         method: "POST",
@@ -194,6 +197,7 @@ async function getActiveLlmConfig(): Promise<{
   apiKey: string;
   model: string;
 } | null> {
+  console.log(`[LLM DB] Fetching active LLM config from platform_settings...`);
   const [row] = await db
     .select()
     .from(platformSettings)
@@ -222,7 +226,9 @@ async function getActiveLlmConfig(): Promise<{
 export async function chatCompletion(
   opts: CompletionOptions,
 ): Promise<string> {
+  console.log(`[LLM CORE] chatCompletion invoked.`);
   const config = await getActiveLlmConfig();
+  console.log(`[LLM CORE] Config retrieved:`, config ? config.provider : "null");
   if (!config) {
     throw new Error(
       "No active LLM provider configured. Go to Platform Settings → Integrations.",
@@ -243,7 +249,9 @@ export async function chatCompletion(
 export async function chatCompletionJSON<T = unknown>(
   opts: CompletionOptions,
 ): Promise<T> {
+  console.log(`[LLM CORE] chatCompletionJSON invoked.`);
   const raw = await chatCompletion({ ...opts, jsonMode: true });
+  console.log(`[LLM CORE] Raw text received. Length:`, raw.length);
 
   // Strip markdown code fences if present
   const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();

@@ -5,6 +5,7 @@ import { CRUD_ACCESS } from "../../../access/crudAccess.js";
 import { createCrudRoutes, type HookContext } from "../../../core/crudFactory.js";
 import { rateLimitConfig } from "../../../core/rateLimit.js";
 import { createZodSchemas } from "../../../utils/schemaFactory.js";
+import { db } from "../../../db/index.js";
 import { uploadedFiles } from "../../uploads/uploadedFiles.schema.js";
 import { blogCategories } from "../blogCategories.schema.js";
 import { chatCompletionJSON } from "../../settings/llm/completion.js";
@@ -222,6 +223,20 @@ const blogCategoriesGenerateRoute: FastifyPluginAsync = async (fastify) => {
 export const platformBlogCategoriesRoutes: FastifyPluginAsync = async (
   fastify,
 ) => {
+  fastify.get(
+    "/options",
+    {
+      preHandler: [requirePlatformAuth()],
+      config: { rateLimit: rateLimitConfig.platform },
+    },
+    async () => {
+      const rows = await db.query.blogCategories.findMany({
+        columns: { id: true, name: true, slug: true },
+      });
+      return rows;
+    }
+  );
+
   await fastify.register(crudRoutes);
   await fastify.register(blogCategoriesGenerateRoute);
 };

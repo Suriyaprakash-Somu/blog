@@ -49,3 +49,16 @@ export function assert(
 export function exhaustiveCheck(value: never): never {
   throw new Error(`Unhandled case: ${JSON.stringify(value)}`);
 }
+
+/**
+ * Format storage key to public image URL
+ */
+export function getPublicImageUrl(storageKey: string | null): string | null {
+  if (!storageKey) return null;
+  if (storageKey.startsWith("http://") || storageKey.startsWith("https://")) {
+    return storageKey;
+  }
+  const apiBase = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3005";
+  const fileId = storageKey.split(".")[0];
+  return `${apiBase}/api/uploads/${fileId}/content`;
+}

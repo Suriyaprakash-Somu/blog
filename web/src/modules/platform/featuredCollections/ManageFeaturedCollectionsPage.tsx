@@ -118,6 +118,8 @@ export function ManageFeaturedCollectionsPage() {
               endpoint: platformFeaturedCollectionsApi.delete.endpoint,
               method: platformFeaturedCollectionsApi.delete.method,
               key: platformFeaturedCollectionsApi.delete.key,
+              revalidateNextTags: ["landing"],
+              revalidatePaths: ["/"],
             },
             confirmation: {
               title: "Delete Collection",

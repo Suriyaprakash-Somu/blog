@@ -14,6 +14,8 @@ export const PUBLIC_ROUTES = {
   settings: "/api/public/settings",
   uploads: "/api/public/uploads",
   blogPosts: "/api/public/blog-posts",
+  blogCategories: "/api/public/blog-categories",
+  blogTags: "/api/public/blog-tags",
   featured: "/api/public/featured",
 } as const;
 

@@ -6,6 +6,7 @@ import { DataTable } from "@/components/dataTable/DataTable";
 import { platformBlogPostsApi } from "@/lib/api/platform-blog-posts";
 import { BlogPostForm } from "./BlogPostForm";
 import type { PlatformBlogPost } from "./types";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const postFilterSchema = z.object({
   title: z.string().optional().describe("Title"),
@@ -19,12 +20,10 @@ const postFilterSchema = z.object({
 export function ManageBlogPostsPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Blog Posts</h1>
-        <p className="mt-2 text-muted-foreground">
-          Create and manage blog posts across the platform.
-        </p>
-      </div>
+      <PageHeader
+        title="Blog Posts"
+        description="Create and manage blog posts across the platform."
+      />
 
       <DataTable<PlatformBlogPost>
         tag={platformBlogPostsApi.getList.key}
@@ -122,6 +121,8 @@ export function ManageBlogPostsPage() {
               endpoint: platformBlogPostsApi.delete.endpoint,
               method: platformBlogPostsApi.delete.method,
               key: platformBlogPostsApi.delete.key,
+              revalidateNextTags: ["landing"],
+              revalidatePaths: ["/", "/blog"],
             },
             confirmation: {
               title: "Delete Post",

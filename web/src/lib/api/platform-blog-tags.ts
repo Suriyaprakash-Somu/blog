@@ -4,6 +4,11 @@ export const platformBlogTagsApi = {
     endpoint: "/api/platform/blog-tags",
     method: "GET" as const,
   },
+  options: {
+    key: "platform-blog-tags-options",
+    endpoint: "/api/platform/blog-tags/options",
+    method: "GET" as const,
+  },
   getOne: {
     key: "platform-blog-tags",
     endpoint: (data: { id: string }) => `/api/platform/blog-tags/${data.id}`,

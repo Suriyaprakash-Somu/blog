@@ -4,8 +4,10 @@ import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/dataTable/DataTable";
 import { platformBlogCategoriesApi } from "@/lib/api/platform-blog-categories";
+import { DynamicIcon } from "@/components/icons/DynamicIcon";
 import { BlogCategoryForm } from "./BlogCategoryForm";
 import type { PlatformBlogCategory } from "./types";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const categoryFilterSchema = z.object({
   name: z.string().optional().describe("Name"),
@@ -16,12 +18,10 @@ const categoryFilterSchema = z.object({
 export function ManageBlogCategoriesPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Blog Categories</h1>
-        <p className="mt-2 text-muted-foreground">
-          Manage global blog categories across the platform.
-        </p>
-      </div>
+      <PageHeader
+        title="Blog Categories"
+        description="Manage global blog categories across the platform."
+      />
 
       <DataTable<PlatformBlogCategory>
         tag={platformBlogCategoriesApi.getList.key}
@@ -42,10 +42,27 @@ export function ManageBlogCategoriesPage() {
                 accessorKey: "name",
                 header: "Category & Slug",
                 cell: ({ row }) => (
-                  <div>
-                    <div className="font-medium">{row.original.name}</div>
-                    <div className="max-w-[320px] truncate text-xs text-muted-foreground">
-                      /{row.original.slug}
+                  <div className="flex items-center gap-3">
+                    {row.original.icon ? (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border bg-muted/50">
+                        <DynamicIcon
+                          name={row.original.icon}
+                          size={20}
+                          className="text-muted-foreground"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border bg-muted/50">
+                        <span className="text-xs text-muted-foreground">-</span>
+                      </div>
+                    )}
+                    <div>
+                      <div className="font-medium text-base">
+                        {row.original.name}
+                      </div>
+                      <div className="max-w-[320px] truncate text-xs text-muted-foreground">
+                        /{row.original.slug}
+                      </div>
                     </div>
                   </div>
                 ),
@@ -95,6 +112,8 @@ export function ManageBlogCategoriesPage() {
               endpoint: platformBlogCategoriesApi.delete.endpoint,
               method: platformBlogCategoriesApi.delete.method,
               key: platformBlogCategoriesApi.delete.key,
+              revalidateNextTags: ["landing"],
+              revalidatePaths: ["/", "/categories", "/blog"],
             },
             confirmation: {
               title: "Delete Category",

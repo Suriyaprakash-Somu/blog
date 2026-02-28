@@ -46,7 +46,7 @@ const SYSTEM_PROMPT = `You are an expert content creator, investigative journali
 - **RECENCY REQUIREMENT**: actively search for and integrate events/data from **2024 and 2025**.
 - **INVESTIGATIVE ANGLE**: Treat the topic like an investigative report. Uncover specific numbers, dates, and official names.
 - **DEPTH SIGNALS**: Use specific case laws, section numbers of acts, exact budget allocations, and direct quotes from official reports.
-- **MAXIMUM LENGTH**: The content must go into maximum depth, up to **2500 words**, with NO REPETITIONS.
+- **MAXIMUM LENGTH**: The content must go into maximum depth, up to **3000 words**, with NO REPETITIONS.
 
 ## SOURCE_STANDARDS_FOR_CURRENT_AFFAIRS (REFERENCE LIST)
 TIER 1: Editorial Analysis and Expert Commentary
@@ -137,7 +137,7 @@ You must output ONLY valid JSON matching this schema:
   "metaTitle": "50-60 characters, compelling and click-worthy, integrating primary keywords",
   "metaDescription": "150-160 characters, action-oriented with primary keyword",
   "metaKeywords": "comma separated keywords",
-  "excerpt": "Hook-Driven Excerpt, 200-300 words...",
+  "excerpt": "Hook-Driven Excerpt, 100-200 words...",
   "content": "The COMPLETE ARTICLE in Markdown. Includes INTRODUCTION, [MAIN SECTION HEADINGS], TLDR, and KEY TAKEAWAYS. Ends with a '## Sources and Further Reading' section containing the explicit citation references.",
   "faq": [
     {
@@ -153,7 +153,7 @@ export function buildBlogPostPrompt(postTitle: string): ChatMessage[] {
     { role: "system", content: SYSTEM_PROMPT },
     {
       role: "user",
-      content: `Please generate the blog post payload for the topic: "${postTitle}". Output ONLY valid JSON according to the schema. Follow all vagueness prohibitions, maximum 2500-word limit formatting, and sourcing rules strictly.`,
+      content: `Please generate the blog post payload for the topic: "${postTitle}". Output ONLY valid JSON according to the schema. Follow all vagueness prohibitions, maximum 4000-word limit formatting, and sourcing rules strictly.`,
     },
   ];
 }
