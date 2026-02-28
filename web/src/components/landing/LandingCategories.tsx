@@ -46,7 +46,7 @@ export function LandingCategories({ categories }: { categories: LandingCategory[
 
   return (
     <section className="relative overflow-hidden bg-background py-20 lg:py-32 border-t">
-      <div className="container px-4 md:px-6 z-10 relative">
+      <div className="container px-4 md:px-6 z-10 relative mx-auto max-w-7xl">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
           <motion.div
             className="max-w-2xl"

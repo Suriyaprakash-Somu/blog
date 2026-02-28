@@ -8,7 +8,7 @@ import { Send } from "lucide-react";
 export function LandingNewsletter() {
   return (
     <section className="border-t bg-muted/30 py-16 md:py-24">
-      <div className="container px-4 md:px-6">
+      <div className="container px-4 md:px-6 mx-auto max-w-7xl">
         <div className="mx-auto flex max-w-[800px] flex-col items-center justify-center text-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}

@@ -36,7 +36,6 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
-import { usePlatformSession } from "@/lib/auth/usePlatformSession";
 import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
 
 interface DashboardNavbarProps {
@@ -45,6 +44,8 @@ interface DashboardNavbarProps {
   toggleSidebar: () => void;
   collapsed: boolean;
   title?: string;
+  user?: { name?: string | null; email?: string | null } | null;
+  roleName?: string | null;
 }
 
 export function DashboardNavbar({
@@ -53,9 +54,10 @@ export function DashboardNavbar({
   toggleSidebar,
   collapsed,
   title = "Dashboard",
+  user,
+  roleName,
 }: DashboardNavbarProps) {
   const pathname = usePathname();
-  const { data: session } = usePlatformSession();
   const breadcrumbs = useBreadcrumbs();
 
   return (
@@ -162,21 +164,18 @@ export function DashboardNavbar({
             >
               <Avatar className="h-8 w-8 rounded-lg border border-border/40 shadow-sm transition-transform group-hover:scale-105">
                 <AvatarImage
-                  src={`https://avatar.vercel.sh/${session?.user?.email || "admin"}.png`}
-                  alt={session?.user?.name || "User"}
+                  src={`https://avatar.vercel.sh/${user?.email || "admin"}.png`}
+                  alt={user?.name || "User"}
                 />
                 <AvatarFallback className="rounded-lg bg-primary/10 text-primary font-bold text-xs">
-                  {session?.user?.name
-                    ? session.user.name.charAt(0).toUpperCase()
+                  {user?.name
+                    ? user.name.charAt(0).toUpperCase()
                     : "A"}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden md:flex flex-col items-start gap-0 text-left">
                 <span className="text-xs font-bold leading-none line-clamp-1">
-                  {session?.user?.name || "Owner"}
-                </span>
-                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">
-                  {session?.role?.name || "Platform Admin"}
+                  {user?.name || "Administrator"}
                 </span>
               </div>
             </DropdownMenuTrigger>
@@ -185,10 +184,10 @@ export function DashboardNavbar({
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-bold leading-none">
-                      {session?.user?.name || "Owner"}
+                      {user?.name || "Administrator"}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {session?.user?.email || "admin@example.com"}
+                      {user?.email || "admin@example.com"}
                     </p>
                   </div>
                 </DropdownMenuLabel>

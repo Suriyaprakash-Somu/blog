@@ -1,7 +1,6 @@
 import { LandingHero } from "@/components/landing/LandingHero";
 import { LandingCategories } from "@/components/landing/LandingCategories";
 import { LandingFeaturedPosts } from "@/components/landing/LandingFeaturedPosts";
-import { LandingTags } from "@/components/landing/LandingTags";
 import { LandingFeatures } from "@/components/landing/LandingFeatures";
 import { LandingStats } from "@/components/landing/LandingStats";
 import { LandingNewsletter } from "@/components/landing/LandingNewsletter";
@@ -141,28 +140,28 @@ export default async function Home() {
 
   const stats = [
     {
-      label: "Featured Posts",
+      label: "Featured Articles",
       value: featuredPosts.length,
       suffix: "",
-      description: "Curated reads surfaced on the landing page.",
+      description: "In-depth reads surfaced from across India.",
     },
     {
-      label: "Featured Categories",
+      label: "Curated Topics",
       value: categories.length,
       suffix: "",
-      description: "Editor-picked pillars used for navigation.",
+      description: "Key pillars for exploring Indian contexts.",
     },
     {
-      label: "Featured Tags",
-      value: tags.length,
-      suffix: "",
-      description: "Topics to help users explore faster.",
+      label: "Data Points",
+      value: 10,
+      suffix: "k+",
+      description: "Verified facts powering our articles.",
     },
     {
-      label: "ISR Window",
-      value: 3,
-      suffix: "h",
-      description: "Rebuild cadence unless revalidated on demand.",
+      label: "Daily Reach",
+      value: 50,
+      suffix: "k+",
+      description: "Engaged readers seeking knowledge.",
     },
   ];
 
@@ -190,16 +189,6 @@ export default async function Home() {
           isFeatured: Boolean(p.isFeatured),
           featuredImageUrl: p.featuredImageUrl ?? null,
           authorName: p.authorName ?? null,
-        }))}
-      />
-      <LandingTags
-        tags={tags.map((t) => ({
-          id: t.id,
-          name: t.name,
-          slug: t.slug,
-          description: t.description ?? null,
-          icon: t.icon ?? null,
-          imageUrl: t.imageUrl ?? null,
         }))}
       />
       <LandingFeatures />

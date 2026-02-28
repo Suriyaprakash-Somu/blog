@@ -81,7 +81,7 @@ export function LandingStats({ stats }: { stats: LandingStat[] }) {
         }}
       ></div>
 
-      <div className="container relative z-10 px-4 md:px-6">
+      <div className="container relative z-10 px-4 md:px-6 mx-auto max-w-7xl">
         <div className="mx-auto flex max-w-[800px] flex-col items-center justify-center text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}

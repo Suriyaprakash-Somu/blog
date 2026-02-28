@@ -92,6 +92,12 @@ export const MODULE_BINDINGS: Record<string, ModuleBinding> = {
     routeBase: "/tenant/branches",
     subject: Subjects.BRANCH,
   },
+  "tenant.blogPosts": {
+    moduleKey: "tenant.blogPosts",
+    scope: "tenant",
+    routeBase: "/tenant/blog-posts",
+    subject: "BlogPost" as AppSubject,
+  },
 };
 
 export function getModuleBinding(moduleKey: string): ModuleBinding | undefined {

@@ -25,7 +25,6 @@ const navLinks = [
   { name: "Home", href: "/" },
   { name: "Blog", href: "/blog" },
   { name: "Categories", href: "/categories" },
-  { name: "Tags", href: "/tags" },
 ];
 
 export function Navbar() {
@@ -54,17 +53,17 @@ export function Navbar() {
           : "bg-transparent border-transparent",
       )}
     >
-      <div className="container mx-auto flex items-center justify-between px-4 md:px-6">
+      <div className="container mx-auto w-full max-w-7xl flex items-center justify-between px-4 md:px-6">
         {/* Logo */}
         <Link href="/" className="group flex items-center gap-2">
           <motion.div
             whileHover={{ rotate: 10, scale: 1.1 }}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black shadow-lg"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black shadow-lg text-sm"
           >
-            B
+            IC
           </motion.div>
           <span className="text-xl font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
-            BlogManager
+            Indian Context
           </span>
         </Link>
         {/* Desktop Navigation */}
@@ -101,17 +100,17 @@ export function Navbar() {
           <ThemeSwitch />
           <div className="h-6 w-px bg-border/60 mx-1" />
           <Link
-            href="/tenant/login"
+            href="/platform/login"
             className="text-sm font-medium hover:text-primary transition-colors"
           >
-            Log in
+            Editor Login
           </Link>
-          <Link href="/tenant/signup">
+          <Link href="/articles">
             <Button
               size="sm"
               className="rounded-full px-5 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 font-semibold h-11"
             >
-              Get Started <ArrowRight className="ml-2 h-4 w-4" />
+              Start Reading <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </Link>
         </div>
@@ -136,7 +135,7 @@ export function Navbar() {
               <SheetHeader className="mb-8 border-b pb-6">
                 <SheetTitle className="text-left flex items-center gap-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-black text-xs">
-                    B
+                    IC
                   </div>
                   <span className="font-bold">Navigation</span>
                 </SheetTitle>
@@ -178,17 +177,17 @@ export function Navbar() {
               </nav>
 
               <div className="mt-auto border-t pt-8 flex flex-col gap-4">
-                <Link href="/tenant/login" onClick={() => setIsOpen(false)}>
+                <Link href="/platform/login" onClick={() => setIsOpen(false)}>
                   <Button
                     variant="outline"
                     className="w-full rounded-2xl h-12 text-base font-semibold"
                   >
-                    Log in
+                    Editor Login
                   </Button>
                 </Link>
-                <Link href="/tenant/signup" onClick={() => setIsOpen(false)}>
+                <Link href="/articles" onClick={() => setIsOpen(false)}>
                   <Button className="w-full rounded-2xl h-12 text-base font-semibold shadow-lg shadow-primary/20">
-                    Get Started
+                    Start Reading
                   </Button>
                 </Link>
               </div>

@@ -178,7 +178,7 @@ export const MODULE_POLICIES: ModulePolicy[] = [
       order: 8,
       visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.ANALYTICS },
     },
-  },  
+  },
   {
     moduleKey: "platform.featuredCollections",
     scope: "platform",
@@ -298,59 +298,82 @@ export const MODULE_POLICIES: ModulePolicy[] = [
       visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.ANALYTICS },
     },
   },
+  // {
+  //   moduleKey: "tenant.branches",
+  //   scope: "tenant",
+  //   subject: SUBJECTS.BRANCH,
+  //   routeBase: "/tenant/branches",
+  //   navigation: {
+  //     title: "Branches",
+  //     path: "/tenant/branches",
+  //     iconKey: "building-2",
+  //     section: "Management",
+  //     order: 2,
+  //     visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.BRANCH },
+  //   },
+  //   crud: {
+  //     key: "branches",
+  //     mode: "tenant",
+  //     tenantScope: true,
+  //     operations: crudFull(SUBJECTS.BRANCH),
+  //   },
+  // },
+  // {
+  //   moduleKey: "tenant.users",
+  //   scope: "tenant",
+  //   subject: SUBJECTS.USER,
+  //   routeBase: "/tenant/users",
+  //   navigation: {
+  //     title: "Users",
+  //     path: "/tenant/users",
+  //     iconKey: "users",
+  //     section: "Management",
+  //     order: 3,
+  //     visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.USER },
+  //   },
+  //   crud: {
+  //     key: "tenantUsers",
+  //     mode: "tenant",
+  //     tenantScope: true,
+  //     operations: crudFull(SUBJECTS.USER),
+  //   },
+  //   supportEndpoints: [
+  //     {
+  //       endpointKey: "roles-options",
+  //       method: "GET",
+  //       path: "/roles",
+  //       allowedWhen: {
+  //         anyOf: [
+  //           { action: ACTIONS.READ, subject: SUBJECTS.ROLE },
+  //           { action: ACTIONS.CREATE, subject: SUBJECTS.USER },
+  //           { action: ACTIONS.UPDATE, subject: SUBJECTS.USER },
+  //         ],
+  //       },
+  //     },
+  // {
+  //   moduleKey: "tenant.users",
+  // ... (skipped original commented out users policy)
+  //   ],
+  // },
   {
-    moduleKey: "tenant.branches",
+    moduleKey: "tenant.blogPosts",
     scope: "tenant",
-    subject: SUBJECTS.BRANCH,
-    routeBase: "/tenant/branches",
+    subject: SUBJECTS.BLOG_POST,
+    routeBase: "/tenant/blog-posts",
     navigation: {
-      title: "Branches",
-      path: "/tenant/branches",
-      iconKey: "building-2",
-      section: "Management",
-      order: 2,
-      visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.BRANCH },
-    },
-    crud: {
-      key: "branches",
-      mode: "tenant",
-      tenantScope: true,
-      operations: crudFull(SUBJECTS.BRANCH),
-    },
-  },
-  {
-    moduleKey: "tenant.users",
-    scope: "tenant",
-    subject: SUBJECTS.USER,
-    routeBase: "/tenant/users",
-    navigation: {
-      title: "Users",
-      path: "/tenant/users",
-      iconKey: "users",
-      section: "Management",
+      title: "Blog Posts",
+      path: "/tenant/blog-posts",
+      iconKey: "file-text",
+      section: "Content",
       order: 3,
-      visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.USER },
+      visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.BLOG_POST },
     },
     crud: {
-      key: "tenantUsers",
+      key: "tenantBlogPosts",
       mode: "tenant",
       tenantScope: true,
-      operations: crudFull(SUBJECTS.USER),
+      operations: crudFull(SUBJECTS.BLOG_POST),
     },
-    supportEndpoints: [
-      {
-        endpointKey: "roles-options",
-        method: "GET",
-        path: "/roles",
-        allowedWhen: {
-          anyOf: [
-            { action: ACTIONS.READ, subject: SUBJECTS.ROLE },
-            { action: ACTIONS.CREATE, subject: SUBJECTS.USER },
-            { action: ACTIONS.UPDATE, subject: SUBJECTS.USER },
-          ],
-        },
-      },
-    ],
   },
 ];
 

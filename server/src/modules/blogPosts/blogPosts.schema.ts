@@ -19,6 +19,7 @@ import { platformUser } from "../users/platform/platform.schema.js";
 import { tenantUser } from "../users/tenant/tenant.schema.js";
 import { blogPostTags } from "./blogPostTags.schema.js";
 import { blogPostSecondaryCategories } from "./blogPostSecondaryCategories.schema.js";
+import { tenants } from "../tenants/tenants.schema.js";
 
 /* ------------------------------------------------------------------ */
 /*  Types for JSONB columns                                           */
@@ -68,6 +69,9 @@ export const blogPosts = pgTable(
     isFeatured: boolean("is_featured").notNull().default(false),
 
     // Relations
+    tenantId: uuid("tenant_id").references(() => tenants.id, {
+      onDelete: "cascade",
+    }),
     categoryId: uuid("category_id").references(() => blogCategories.id, {
       onDelete: "set null",
     }),
@@ -98,6 +102,10 @@ export const blogPosts = pgTable(
 /* ------------------------------------------------------------------ */
 
 export const blogPostsRelations = relations(blogPosts, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [blogPosts.tenantId],
+    references: [tenants.id],
+  }),
   category: one(blogCategories, {
     fields: [blogPosts.categoryId],
     references: [blogCategories.id],

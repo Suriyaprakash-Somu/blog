@@ -100,6 +100,8 @@ export interface SidebarProps {
   logo?: ReactNode;
   title?: string;
   homeLink?: string;
+  user?: { name?: string | null; email?: string | null } | null;
+  roleName?: string | null;
 }
 
 /**

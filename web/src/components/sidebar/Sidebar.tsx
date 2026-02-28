@@ -56,6 +56,8 @@ export function Sidebar({
   logo,
   title = "App Name",
   homeLink = "/",
+  user,
+  roleName,
 }: SidebarProps): React.ReactElement {
   const pathname = usePathname();
   const router = useRouter();
@@ -398,11 +400,13 @@ export function Sidebar({
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <DashboardNavbar
-          onLogout={onLogout ?? (() => {})}
+          onLogout={onLogout ?? (() => { })}
           toggleMobile={toggleMobile}
           toggleSidebar={toggleSidebar}
           collapsed={collapsed}
           title={title}
+          user={user}
+          roleName={roleName}
         />
 
         <main className="flex-1 p-4 md:p-6 bg-background/50 overflow-y-auto scrollbar-hide flex flex-col">

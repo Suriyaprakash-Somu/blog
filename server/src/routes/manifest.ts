@@ -37,4 +37,5 @@ export const TENANT_ROUTES = {
   analytics: "/api/tenant/analytics",
   branches: "/api/tenant/branches",
   users: "/api/tenant/users",
+  blogPosts: "/api/tenant/blog-posts",
 } as const;

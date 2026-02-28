@@ -87,6 +87,8 @@ export default function TenantLayout({
         title={session.tenant?.name || "Workspace"}
         onLogout={handleLogout}
         showOrganizationSwitcher={false}
+        user={session.user}
+        roleName={session.role?.name}
       >
         {isImpersonating ? (
           <div className="mb-4 flex items-center justify-between rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white">

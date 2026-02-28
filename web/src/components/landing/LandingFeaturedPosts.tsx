@@ -21,7 +21,7 @@ export function LandingFeaturedPosts({ posts }: { posts: LandingPost[] }) {
 
   return (
     <section className="bg-muted/30 py-16 md:py-24 relative overflow-hidden border-t">
-      <div className="container px-4 md:px-6 relative z-10">
+      <div className="container px-4 md:px-6 relative z-10 mx-auto max-w-7xl">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <motion.div
             className="max-w-2xl"

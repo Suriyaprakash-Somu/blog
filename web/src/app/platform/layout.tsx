@@ -86,6 +86,8 @@ export default function PlatformLayout({
         title="Platform Admin"
         onLogout={handleLogout}
         showOrganizationSwitcher={false}
+        user={adminSession.user}
+        roleName={adminSession.role?.name}
       >
         <BannerManager type="HEADER" />
         {children}

@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { IsometricHeroSVG } from "./IsometricHeroSVG";
+import { BlogHeroAnimation } from "./BlogHeroAnimation";
 
 export function LandingHero() {
   return (
     <section className="relative overflow-hidden bg-background py-20 lg:py-32">
-      <div className="container relative z-10 px-4 md:px-6">
+      <div className="container relative z-10 px-4 md:px-6 mx-auto max-w-7xl">
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-8 items-center">
           {/* Text & Call To Actions */}
           <div className="flex flex-col justify-center space-y-8 text-center lg:text-left">
@@ -60,14 +60,14 @@ export function LandingHero() {
             </motion.div>
           </div>
 
-          {/* GSAP Isometric SVG Scene */}
+          {/* Animated Blog News Feed Scene */}
           <motion.div
             className="hidden lg:flex w-full h-[500px] justify-center items-center relative"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
           >
-            <IsometricHeroSVG />
+            <BlogHeroAnimation />
           </motion.div>
         </div>
       </div>

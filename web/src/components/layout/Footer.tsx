@@ -10,7 +10,6 @@ export function Footer() {
       links: [
         { name: "Blog", href: "/blog" },
         { name: "Categories", href: "/categories" },
-        { name: "Tags", href: "/tags" },
         { name: "Pricing", href: "/pricing" },
       ],
     },
@@ -40,17 +39,15 @@ export function Footer() {
           {/* Brand Column */}
           <div className="flex flex-col gap-6 max-w-sm">
             <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black shadow-lg">
-                B
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black shadow-lg text-sm">
+                IC
               </div>
               <span className="text-2xl font-bold tracking-tight text-foreground">
-                BlogManager
+                Indian Context
               </span>
             </Link>
             <p className="text-muted-foreground leading-relaxed">
-              The modern platform for digital storytellers. Empowering creators
-              with state-of-the-art tools for content management and audience
-              engagement.
+              The definitive encyclopedic portal decoding every dimension of India. Curated insights, hard facts, and deep dives designed for students, researchers, and the intellectually curious.
             </p>
             <div className="flex items-center gap-4">
               <Button
@@ -104,7 +101,7 @@ export function Footer() {
         {/* Newsletter / Bottom area */}
         <div className="mt-20 border-t pt-10 flex flex-col md:flex-row justify-between items-center gap-6">
           <p className="text-sm text-muted-foreground">
-            &copy; {currentYear} Blog Platform. All rights reserved.
+            &copy; {currentYear} Indian Context. All rights reserved.
           </p>
           <div className="flex items-center gap-6 text-sm font-medium text-muted-foreground">
             <Link href="/rss" className="hover:text-primary transition-colors">

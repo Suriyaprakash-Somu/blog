@@ -13,13 +13,13 @@ import { passwordSchema, PASSWORD_REQUIREMENTS_TEXT } from "@/lib/validation/pas
 // Define schema for Tenant Signup
 const signupSchema = z
   .object({
-    companyName: z
+    penName: z
       .string()
-      .min(2, "Company Name must be at least 2 characters")
+      .min(2, "Pen Name must be at least 2 characters")
       .describe(
         JSON.stringify({
-          label: "Company Name",
-          placeholder: "Acme Corp",
+          label: "Pen Name",
+          placeholder: "Jane Doe",
         }),
       ),
     ownerName: z
@@ -76,8 +76,8 @@ export function TenantSignupPage() {
     setIsLoading(true);
     try {
       await signupMutation.mutateAsync({
-        companyName: data.companyName,
-        // Slug is generated on server
+        penName: data.penName,
+        // Slug and company name are generated on server
         ownerName: data.ownerName,
         email: data.email,
         password: data.password,
@@ -119,7 +119,7 @@ export function TenantSignupPage() {
         <SchemaForm
           schema={signupSchema}
           defaultValues={{
-            companyName: "",
+            penName: "",
             ownerName: "",
             email: "",
             password: "",

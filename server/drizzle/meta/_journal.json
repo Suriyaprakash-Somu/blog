@@ -15,6 +15,20 @@
       "when": 1772169557558,
       "tag": "0001_fantastic_roulette",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772258511989,
+      "tag": "0002_flat_quasar",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1772269587940,
+      "tag": "0003_windy_spectrum",
+      "breakpoints": true
     }
   ]
 }

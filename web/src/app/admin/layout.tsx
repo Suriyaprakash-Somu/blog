@@ -24,7 +24,7 @@ import {
   Briefcase,
 } from "lucide-react";
 
-export const menuItems: MenuItem[] = [
+const menuItems: MenuItem[] = [
   // =============================================================================
   // 1. SIMPLE LINK - No children, just navigates
   // =============================================================================

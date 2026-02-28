@@ -76,7 +76,7 @@ export function LandingFeatures() {
       id="features"
       className="bg-muted/30 py-16 md:py-24 relative overflow-hidden"
     >
-      <div className="container px-4 md:px-6 relative z-10">
+      <div className="container px-4 md:px-6 relative z-10 mx-auto max-w-7xl">
         <div className="mx-auto mb-16 flex max-w-[800px] flex-col items-center justify-center gap-4 text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
