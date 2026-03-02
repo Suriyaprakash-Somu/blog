@@ -18,6 +18,7 @@ export const PUBLIC_ROUTES = {
   blogTags: "/api/public/blog-tags",
   featured: "/api/public/featured",
   newsletter: "/api/public/newsletter",
+  seo: "/api/public/seo",
 } as const;
 
 export const PLATFORM_ROUTES = {

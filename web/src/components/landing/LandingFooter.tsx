@@ -92,13 +92,13 @@ export function LandingFooter({ siteSettings }: { siteSettings?: SiteSettings })
           <div className="flex flex-col gap-2">
             <h3 className="text-sm font-semibold">Legal</h3>
             <Link
-              href="/privacy"
+              href="/privacy-policy"
               className="text-sm text-muted-foreground hover:underline"
             >
               Privacy Policy
             </Link>
             <Link
-              href="/terms"
+              href="/terms-and-conditions"
               className="text-sm text-muted-foreground hover:underline"
             >
               Terms of Service

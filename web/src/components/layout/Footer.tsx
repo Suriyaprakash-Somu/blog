@@ -50,8 +50,8 @@ export function Footer({ siteSettings }: { siteSettings?: SiteSettings }) {
     {
       title: "Legal",
       links: [
-        { name: "Privacy Policy", href: "/privacy" },
-        { name: "Terms of Service", href: "/terms" },
+        { name: "Privacy Policy", href: "/privacy-policy" },
+        { name: "Terms of Service", href: "/terms-and-conditions" },
         { name: "Cookie Policy", href: "/cookies" },
       ],
     },
