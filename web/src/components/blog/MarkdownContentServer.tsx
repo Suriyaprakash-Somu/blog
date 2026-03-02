@@ -1,5 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeSlug from "rehype-slug";
 
 function isExternalHref(href: string) {
   return href.startsWith("http://") || href.startsWith("https://");
@@ -10,6 +11,7 @@ export function MarkdownContentServer({ source }: { source: string }) {
     <div className="prose prose-lg dark:prose-invert prose-primary mx-auto w-full max-w-none text-justify">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeSlug]}
         components={{
           h1: ({ children, ...props }) => (
             <h1

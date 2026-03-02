@@ -1,8 +1,36 @@
 import Link from "next/link";
-import { Mail, Github, Twitter, Linkedin } from "lucide-react";
+import { Twitter, Linkedin, Facebook, Instagram, Youtube, Globe } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { SiteSettings, SocialLinks } from "@/lib/api/public-settings";
 
-export function Footer() {
+/* ── Social icon map ───────────────────────────────── */
+
+const SOCIAL_ICON_MAP: {
+  key: keyof SocialLinks;
+  icon: React.ElementType;
+  label: string;
+}[] = [
+    { key: "twitter", icon: Twitter, label: "Twitter" },
+    { key: "facebook", icon: Facebook, label: "Facebook" },
+    { key: "instagram", icon: Instagram, label: "Instagram" },
+    { key: "youtube", icon: Youtube, label: "YouTube" },
+    { key: "linkedin", icon: Linkedin, label: "LinkedIn" },
+    { key: "website", icon: Globe, label: "Website" },
+  ];
+
+/* ── Footer ────────────────────────────────────────── */
+
+export function Footer({ siteSettings }: { siteSettings?: SiteSettings }) {
   const currentYear = new Date().getFullYear();
+
+  const lightLogo = siteSettings?.logos?.lightLogoUrl;
+  const darkLogo = siteSettings?.logos?.darkLogoUrl;
+  const hasLogo = !!lightLogo || !!darkLogo;
+
+  const socialLinks = siteSettings?.socialLinks ?? {};
+  const activeSocials = SOCIAL_ICON_MAP.filter(
+    (s) => socialLinks[s.key] && socialLinks[s.key]!.trim() !== "",
+  );
 
   const footerLinks = [
     {
@@ -10,16 +38,13 @@ export function Footer() {
       links: [
         { name: "Blog", href: "/blog" },
         { name: "Categories", href: "/categories" },
-        { name: "Pricing", href: "/pricing" },
       ],
     },
     {
       title: "Company",
       links: [
         { name: "About Us", href: "/about" },
-        { name: "Contact", href: "/contact" },
-        { name: "Careers", href: "/careers" },
-        { name: "Admin Login", href: "/platform/login" },
+        { name: "Login", href: "/tenant/login" },
       ],
     },
     {
@@ -39,39 +64,68 @@ export function Footer() {
           {/* Brand Column */}
           <div className="flex flex-col gap-6 max-w-sm">
             <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black shadow-lg text-sm">
-                IC
-              </div>
-              <span className="text-2xl font-bold tracking-tight text-foreground">
-                Indian Context
-              </span>
+              {hasLogo ? (
+                <>
+                  {lightLogo && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={lightLogo}
+                      alt={siteSettings.identity.siteName}
+                      className={cn(
+                        "h-10 w-auto object-contain",
+                        darkLogo ? "dark:hidden" : "",
+                      )}
+                    />
+                  )}
+                  {darkLogo && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={darkLogo}
+                      alt={siteSettings.identity.siteName}
+                      className={cn(
+                        "h-10 w-auto object-contain",
+                        lightLogo ? "hidden dark:block" : "",
+                      )}
+                    />
+                  )}
+                  {/* Site Name text next to logo (optional, can be hidden on small screens) */}
+                  <span className="hidden sm:inline-block text-2xl font-bold tracking-tight text-foreground ml-1">
+                    {siteSettings?.identity?.siteName ?? "Brand"}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black shadow-lg text-sm shrink-0">
+                    {siteSettings?.identity?.shortName ?? "BR"}
+                  </div>
+                  <span className="text-2xl font-bold tracking-tight text-foreground">
+                    {siteSettings?.identity?.siteName ?? "Brand Name"}
+                  </span>
+                </>
+              )}
             </Link>
             <p className="text-muted-foreground leading-relaxed">
-              The definitive encyclopedic portal decoding every dimension of India. Curated insights, hard facts, and deep dives designed for students, researchers, and the intellectually curious.
+              The definitive encyclopedic portal decoding every dimension of
+              India. Curated insights, hard facts, and deep dives designed for
+              students, researchers, and the intellectually curious.
             </p>
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full hover:bg-primary/10 hover:text-primary transition-all"
-              >
-                <Twitter className="h-5 w-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full hover:bg-primary/10 hover:text-primary transition-all"
-              >
-                <Github className="h-5 w-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full hover:bg-primary/10 hover:text-primary transition-all"
-              >
-                <Linkedin className="h-5 w-5" />
-              </Button>
-            </div>
+            {/* Social Links — dynamic from settings */}
+            {activeSocials.length > 0 && (
+              <div className="flex items-center gap-3">
+                {activeSocials.map(({ key, icon: Icon, label }) => (
+                  <a
+                    key={key}
+                    href={socialLinks[key]!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={label}
+                    className="inline-flex items-center justify-center h-10 w-10 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all"
+                  >
+                    <Icon className="h-5 w-5" />
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Links Grid */}
@@ -98,10 +152,10 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Newsletter / Bottom area */}
+        {/* Bottom area */}
         <div className="mt-20 border-t pt-10 flex flex-col md:flex-row justify-between items-center gap-6">
           <p className="text-sm text-muted-foreground">
-            &copy; {currentYear} Indian Context. All rights reserved.
+            &copy; {currentYear} {siteSettings?.identity?.siteName ?? "Brand"}. All rights reserved.
           </p>
           <div className="flex items-center gap-6 text-sm font-medium text-muted-foreground">
             <Link href="/rss" className="hover:text-primary transition-colors">
@@ -122,7 +176,3 @@ export function Footer() {
     </footer>
   );
 }
-
-// Minimal Button internal implementation to avoid dependency issues if needed,
-// but assuming @/components/ui/button exist:
-import { Button } from "@/components/ui/button";

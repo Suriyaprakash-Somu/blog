@@ -1,15 +1,59 @@
 import Link from "next/link";
+import { cn } from "@/lib/utils";
+import type { SiteSettings } from "@/lib/api/public-settings";
 
-export function LandingFooter() {
+export function LandingFooter({ siteSettings }: { siteSettings?: SiteSettings }) {
+  const currentYear = new Date().getFullYear();
+  const siteName = siteSettings?.identity?.siteName ?? "Blog Platform";
+  const shortName = siteSettings?.identity?.shortName ?? "BP";
+  const lightLogo = siteSettings?.logos?.lightLogoUrl;
+  const darkLogo = siteSettings?.logos?.darkLogoUrl;
+  const hasLogo = !!lightLogo || !!darkLogo;
+
   return (
     <footer className="border-t bg-background py-12 md:py-16">
       <div className="container px-4 md:px-6">
         <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-4">
           <div className="flex flex-col gap-4">
             <Link href="/" className="flex items-center gap-2">
-              <span className="text-xl font-bold tracking-tight text-primary">
-                Blog Platform
-              </span>
+              {hasLogo ? (
+                <>
+                  {lightLogo && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={lightLogo}
+                      alt={siteName}
+                      className={cn(
+                        "h-8 w-auto object-contain",
+                        darkLogo ? "dark:hidden" : "",
+                      )}
+                    />
+                  )}
+                  {darkLogo && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={darkLogo}
+                      alt={siteName}
+                      className={cn(
+                        "h-8 w-auto object-contain",
+                        lightLogo ? "hidden dark:block" : "",
+                      )}
+                    />
+                  )}
+                  <span className="text-xl font-bold tracking-tight text-primary ml-1">
+                    {siteName}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-black shadow-md text-xs shrink-0">
+                    {shortName}
+                  </div>
+                  <span className="text-xl font-bold tracking-tight text-primary">
+                    {siteName}
+                  </span>
+                </>
+              )}
             </Link>
             <p className="text-sm text-muted-foreground">
               Empowering creators with modern tools for content management.
@@ -22,12 +66,6 @@ export function LandingFooter() {
               className="text-sm text-muted-foreground hover:underline"
             >
               Features
-            </Link>
-            <Link
-              href="/pricing"
-              className="text-sm text-muted-foreground hover:underline"
-            >
-              Pricing
             </Link>
             <Link
               href="/showcase"
@@ -45,22 +83,10 @@ export function LandingFooter() {
               About Us
             </Link>
             <Link
-              href="/contact"
+              href="/tenant/login"
               className="text-sm text-muted-foreground hover:underline"
             >
-              Contact
-            </Link>
-            <Link
-              href="/careers"
-              className="text-sm text-muted-foreground hover:underline"
-            >
-              Careers
-            </Link>
-            <Link
-              href="/platform/login"
-              className="text-sm text-muted-foreground hover:underline"
-            >
-              Admin Login
+              Login
             </Link>
           </div>
           <div className="flex flex-col gap-2">
@@ -77,11 +103,16 @@ export function LandingFooter() {
             >
               Terms of Service
             </Link>
+            <Link
+              href="/cookies"
+              className="text-sm text-muted-foreground hover:underline"
+            >
+              Cookie Policy
+            </Link>
           </div>
         </div>
         <div className="mt-12 border-t pt-8 text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} Blog Platform. All rights
-          reserved.
+          &copy; {currentYear} {siteName}. All rights reserved.
         </div>
       </div>
     </footer>

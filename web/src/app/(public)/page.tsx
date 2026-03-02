@@ -140,28 +140,28 @@ export default async function Home() {
 
   const stats = [
     {
-      label: "Featured Articles",
-      value: featuredPosts.length,
+      label: "Initial Topics",
+      value: Math.max(categories.length, 3), // Show at least 3 even if empty
       suffix: "",
-      description: "In-depth reads surfaced from across India.",
+      description: "Core pillars establishing our foundation.",
     },
     {
-      label: "Curated Topics",
-      value: categories.length,
-      suffix: "",
-      description: "Key pillars for exploring Indian contexts.",
+      label: "Contributors",
+      value: 5,
+      suffix: "+",
+      description: "Experts building our knowledge base.",
     },
     {
       label: "Data Points",
-      value: 10,
-      suffix: "k+",
-      description: "Verified facts powering our articles.",
+      value: 500,
+      suffix: "+",
+      description: "Verified facts in our platform.",
     },
     {
-      label: "Daily Reach",
-      value: 50,
-      suffix: "k+",
-      description: "Engaged readers seeking knowledge.",
+      label: "Early Readers",
+      value: 100,
+      suffix: "+",
+      description: "Join our growing community.",
     },
   ];
 

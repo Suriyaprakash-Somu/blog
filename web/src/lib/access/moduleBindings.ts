@@ -68,6 +68,12 @@ export const MODULE_BINDINGS: Record<string, ModuleBinding> = {
     routeBase: "/platform/blog-posts",
     subject: "BlogPost" as AppSubject,
   },
+  "platform.newsletter": {
+    moduleKey: "platform.newsletter",
+    scope: "platform",
+    routeBase: "/platform/newsletter",
+    subject: Subjects.PLATFORM_ADMIN,
+  },
   "tenant.users": {
     moduleKey: "tenant.users",
     scope: "tenant",

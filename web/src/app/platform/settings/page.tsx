@@ -63,6 +63,11 @@ interface SocialLinks {
   website?: string;
 }
 
+interface SiteIdentity {
+  siteName?: string;
+  shortName?: string;
+}
+
 interface LogosValue {
   lightLogoFileId?: string | null;
   darkLogoFileId?: string | null;
@@ -138,12 +143,19 @@ export default function PlatformSettingsPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* ── Branding ───────────────────────────────────────── */}
+          {/* ── Branding & Identity ───────────────────────────────────────── */}
           <TabsContent value="branding">
-            <BrandingSection
-              initialValue={getSettingValue<LogosValue>("logos", {})}
-              onSaved={load}
-            />
+            <div className="flex flex-col gap-10">
+              <IdentitySection
+                initialValue={getSettingValue<SiteIdentity>("site_identity", {})}
+                onSaved={load}
+              />
+              <div className="h-px bg-border w-full max-w-3xl" />
+              <BrandingSection
+                initialValue={getSettingValue<LogosValue>("logos", {})}
+                onSaved={load}
+              />
+            </div>
           </TabsContent>
 
           {/* ── Social Media ───────────────────────────────────── */}
@@ -167,6 +179,87 @@ export default function PlatformSettingsPage() {
         </Tabs>
       </div>
     </PageShell>
+  );
+}
+
+/* ================================================================== */
+/*  ── Identity Section                                               */
+/* ================================================================== */
+
+function IdentitySection({
+  initialValue,
+  onSaved,
+}: {
+  initialValue: SiteIdentity;
+  onSaved: () => void;
+}) {
+  const [identity, setIdentity] = useState<SiteIdentity>(initialValue);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updatePlatformSetting("site_identity", {
+        value: identity,
+        isPublic: true,
+        description: "Platform site name and short name",
+      });
+      toast.success("Identity saved");
+      onSaved();
+    } catch {
+      toast.error("Failed to save identity");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="grid gap-6 max-w-3xl pt-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Site Identity</CardTitle>
+          <CardDescription>
+            Configure the name of your platform. This will be displayed in the
+            navigation bar, footer, and page titles.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor="siteName">Site Name</Label>
+            <Input
+              id="siteName"
+              placeholder="e.g., Indian Context"
+              value={identity.siteName ?? ""}
+              onChange={(e) =>
+                setIdentity((prev) => ({ ...prev, siteName: e.target.value }))
+              }
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="shortName">Short Name (Fallback Logo)</Label>
+            <Input
+              id="shortName"
+              placeholder="e.g., IC"
+              value={identity.shortName ?? ""}
+              onChange={(e) =>
+                setIdentity((prev) => ({ ...prev, shortName: e.target.value }))
+              }
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="mr-2 h-4 w-4" />
+          )}
+          Save Identity
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -296,43 +389,43 @@ const SOCIAL_FIELDS: {
   icon: React.ElementType;
   placeholder: string;
 }[] = [
-  {
-    key: "twitter",
-    label: "Twitter / X",
-    icon: Twitter,
-    placeholder: "https://twitter.com/yourhandle",
-  },
-  {
-    key: "facebook",
-    label: "Facebook",
-    icon: Facebook,
-    placeholder: "https://facebook.com/yourpage",
-  },
-  {
-    key: "instagram",
-    label: "Instagram",
-    icon: Instagram,
-    placeholder: "https://instagram.com/yourhandle",
-  },
-  {
-    key: "youtube",
-    label: "YouTube",
-    icon: Youtube,
-    placeholder: "https://youtube.com/@yourchannel",
-  },
-  {
-    key: "linkedin",
-    label: "LinkedIn",
-    icon: Linkedin,
-    placeholder: "https://linkedin.com/company/yourcompany",
-  },
-  {
-    key: "website",
-    label: "Website",
-    icon: Globe,
-    placeholder: "https://yourwebsite.com",
-  },
-];
+    {
+      key: "twitter",
+      label: "Twitter / X",
+      icon: Twitter,
+      placeholder: "https://twitter.com/yourhandle",
+    },
+    {
+      key: "facebook",
+      label: "Facebook",
+      icon: Facebook,
+      placeholder: "https://facebook.com/yourpage",
+    },
+    {
+      key: "instagram",
+      label: "Instagram",
+      icon: Instagram,
+      placeholder: "https://instagram.com/yourhandle",
+    },
+    {
+      key: "youtube",
+      label: "YouTube",
+      icon: Youtube,
+      placeholder: "https://youtube.com/@yourchannel",
+    },
+    {
+      key: "linkedin",
+      label: "LinkedIn",
+      icon: Linkedin,
+      placeholder: "https://linkedin.com/company/yourcompany",
+    },
+    {
+      key: "website",
+      label: "Website",
+      icon: Globe,
+      placeholder: "https://yourwebsite.com",
+    },
+  ];
 
 function SocialMediaSection({
   initialValue,
@@ -548,9 +641,8 @@ function IntegrationsSection({
           return (
             <Card
               key={provider.id}
-              className={`transition-colors ${
-                isActive ? "border-primary/50 bg-primary/2" : "border-border"
-              }`}
+              className={`transition-colors ${isActive ? "border-primary/50 bg-primary/2" : "border-border"
+                }`}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">

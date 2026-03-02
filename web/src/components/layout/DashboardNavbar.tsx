@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -94,12 +95,12 @@ export function DashboardNavbar({
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink
-                href="/platform/dashboard"
-                className="flex items-center gap-1.5 hover:text-primary transition-colors"
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                <span>Dashboard</span>
-              </BreadcrumbLink>
+                render={<Link href="/platform/dashboard">
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  <span>Dashboard</span>
+                </Link>}
+                className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer"
+              />
             </BreadcrumbItem>
             {breadcrumbs.slice(2).map((crumb) => (
               <React.Fragment key={crumb.href}>
@@ -113,11 +114,9 @@ export function DashboardNavbar({
                     </BreadcrumbPage>
                   ) : (
                     <BreadcrumbLink
-                      href={crumb.href}
-                      className="hover:text-primary transition-colors"
-                    >
-                      {crumb.label}
-                    </BreadcrumbLink>
+                      render={<Link href={crumb.href}>{crumb.label}</Link>}
+                      className="hover:text-primary transition-colors cursor-pointer"
+                    />
                   )}
                 </BreadcrumbItem>
               </React.Fragment>

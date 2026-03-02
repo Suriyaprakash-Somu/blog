@@ -51,4 +51,11 @@ export async function registerPublicRoutes(app: FastifyInstance) {
     basePrefix: ROUTE_PREFIXES.public,
     label: "public.featured",
   });
+
+  const { publicNewsletterRoutes } = await import("../modules/newsletter/public/index.js");
+  await registerWithPrefix(app, publicNewsletterRoutes, {
+    prefix: PUBLIC_ROUTES.newsletter,
+    basePrefix: ROUTE_PREFIXES.public,
+    label: "public.newsletter",
+  });
 }

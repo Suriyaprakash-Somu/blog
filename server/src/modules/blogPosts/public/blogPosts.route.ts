@@ -33,25 +33,25 @@ export const publicBlogPostsRoutes: FastifyPluginAsync = async (app: FastifyInst
       ...baseWhere,
       ...(needsCategoryJoin
         ? [
-            or(
-              eq(blogCategories.slug, categorySlug),
-              exists(
-                db
-                  .select()
-                  .from(blogPostSecondaryCategories)
-                  .innerJoin(
-                    blogCategories,
-                    eq(blogPostSecondaryCategories.categoryId, blogCategories.id),
-                  )
-                  .where(
-                    and(
-                      eq(blogPostSecondaryCategories.postId, blogPosts.id),
-                      eq(blogCategories.slug, categorySlug),
-                    ),
+          or(
+            eq(blogCategories.slug, categorySlug),
+            exists(
+              db
+                .select()
+                .from(blogPostSecondaryCategories)
+                .innerJoin(
+                  blogCategories,
+                  eq(blogPostSecondaryCategories.categoryId, blogCategories.id),
+                )
+                .where(
+                  and(
+                    eq(blogPostSecondaryCategories.postId, blogPosts.id),
+                    eq(blogCategories.slug, categorySlug),
                   ),
-              ),
+                ),
             ),
-          ]
+          ),
+        ]
         : []),
       ...(needsTagJoin ? [eq(blogTags.slug, tagSlug)] : []),
     );
@@ -145,6 +145,38 @@ export const publicBlogPostsRoutes: FastifyPluginAsync = async (app: FastifyInst
       return reply.status(404).send({ success: false, error: { message: "Post not found" } });
     }
 
-    return { success: true, data: post };
+    // Fetch tags for this post
+    const postTags = await db
+      .select({
+        id: blogTags.id,
+        name: blogTags.name,
+        slug: blogTags.slug,
+      })
+      .from(blogPostTags)
+      .innerJoin(blogTags, eq(blogPostTags.tagId, blogTags.id))
+      .where(eq(blogPostTags.postId, post.id));
+
+    // Fetch secondary categories for this post
+    const secondaryCategories = await db
+      .select({
+        id: blogCategories.id,
+        name: blogCategories.name,
+        slug: blogCategories.slug,
+      })
+      .from(blogPostSecondaryCategories)
+      .innerJoin(
+        blogCategories,
+        eq(blogPostSecondaryCategories.categoryId, blogCategories.id)
+      )
+      .where(eq(blogPostSecondaryCategories.postId, post.id));
+
+    return {
+      success: true,
+      data: {
+        ...post,
+        tags: postTags,
+        secondaryCategories
+      }
+    };
   });
 };

@@ -48,3 +48,6 @@ export * from "./settings.js";
 
 // Featured Content
 export * from "../../modules/featured/featured.schema.js";
+
+// Newsletter
+export * from "../../modules/newsletter/newsletter.schema.js";
