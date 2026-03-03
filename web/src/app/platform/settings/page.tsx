@@ -314,6 +314,7 @@ function BrandingSection({
             }
             accept="image/*"
             maxSizeBytes={5 * 1024 * 1024}
+            isPublic={true}
             uploadMode="auth"
           />
         </CardContent>
@@ -337,6 +338,7 @@ function BrandingSection({
             }
             accept="image/*"
             maxSizeBytes={5 * 1024 * 1024}
+            isPublic={true}
             uploadMode="auth"
           />
         </CardContent>
@@ -360,6 +362,7 @@ function BrandingSection({
             }
             accept="image/*"
             maxSizeBytes={2 * 1024 * 1024}
+            isPublic={true}
             uploadMode="auth"
           />
         </CardContent>

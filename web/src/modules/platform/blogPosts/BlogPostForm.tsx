@@ -342,29 +342,36 @@ export function BlogPostForm({
                 onChange={(e) => setImportJson(e.target.value)}
                 placeholder='{ "slug": "...", "content": "..." }'
               />
-              <div className="flex gap-2 justify-end">
+              <div className="flex flex-col sm:flex-row gap-2 justify-end">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowImport(false)}
+                  className="w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
-                <Button type="button" size="sm" onClick={handleImportJsonParse}>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleImportJsonParse}
+                  className="w-full sm:w-auto"
+                >
                   Import & Parse
                 </Button>
               </div>
             </div>
           )}
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 disabled={generating || showImport}
                 onClick={handleGenerateWithAI}
+                className="w-full sm:w-auto"
               >
                 {generating ? (
                   <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
@@ -378,11 +385,16 @@ export function BlogPostForm({
                 variant="secondary"
                 size="sm"
                 onClick={() => setShowImport(!showImport)}
+                className="w-full sm:w-auto"
               >
                 Manual JSON
               </Button>
             </div>
-            <Button type="submit" disabled={!canSubmit || isSubmitting}>
+            <Button
+              type="submit"
+              disabled={!canSubmit || isSubmitting}
+              className="w-full sm:w-auto"
+            >
               {isSubmitting && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}

@@ -27,6 +27,7 @@ export interface FileUploadFieldProps {
   maxSizeBytes?: number;
   maxFiles?: number;
   maxTotalSizeBytes?: number;
+  isPublic?: boolean;
   uploadMode?: "auth" | "public";
 }
 
@@ -52,6 +53,7 @@ export function FileUploadField({
   maxSizeBytes,
   maxFiles = 1,
   maxTotalSizeBytes,
+  isPublic = false,
   uploadMode = "auth",
 }: FileUploadFieldProps): React.ReactElement {
   const apiBaseUrl = getApiBaseUrl();
@@ -140,6 +142,9 @@ export function FileUploadField({
           filesToUpload.map(async (file) => {
             const formData = new FormData();
             formData.append("file", file);
+            if (isPublic) {
+              formData.append("isPublic", "true");
+            }
 
             if (uploadMode === "auth") {
               const uploaded = await clientFetch<{ fileId: string }>(
@@ -284,13 +289,12 @@ export function FileUploadField({
     <div className="space-y-2">
       <div
         {...getRootProps()}
-        className={`rounded-md border border-dashed p-3 text-sm transition-colors ${
-          disabled
+        className={`rounded-md border border-dashed p-3 text-sm transition-colors ${disabled
             ? "opacity-60"
             : isDragActive
               ? "border-primary bg-muted"
               : "border-muted-foreground/30"
-        }`}
+          }`}
       >
         <input {...getInputProps()} />
         {isUploading ? (

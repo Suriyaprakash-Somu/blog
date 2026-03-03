@@ -158,7 +158,7 @@ export function Footer({ siteSettings }: { siteSettings?: SiteSettings }) {
             &copy; {currentYear} {siteSettings?.identity?.siteName ?? "Brand"}. All rights reserved.
           </p>
           <div className="flex items-center gap-6 text-sm font-medium text-muted-foreground">
-            <Link href="/rss" className="hover:text-primary transition-colors">
+            <Link href="/rss.xml" className="hover:text-primary transition-colors">
               RSS Feed
             </Link>
             <Link

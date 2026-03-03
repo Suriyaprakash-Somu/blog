@@ -246,8 +246,7 @@ function execFileWithTimeout(
 
 async function scanUpload(params: {
   filePath: string;
-}): Promise<{ allowed: boolean; infected: boolean; lastError: string | null }>
-{
+}): Promise<{ allowed: boolean; infected: boolean; lastError: string | null }> {
   if (env.UPLOAD_SCAN_MODE === "none") {
     return { allowed: true, infected: false, lastError: null };
   }
@@ -320,31 +319,45 @@ function buildUploadExpiry(): Date | null {
 async function handleUpload(
   request: FastifyRequest,
   reply: FastifyReply,
-  options: { tenantId: string | null; isPublic: boolean }
+  options: { tenantId: string | null; isPublic?: boolean }
 ) {
-  const part = await request.file();
-  if (!part) {
+  const parts = request.parts();
+  let filePart: any = null;
+  let isPublicValue = options.isPublic;
+
+  for await (const part of parts) {
+    if (part.type === "file") {
+      filePart = part;
+      break;
+    } else {
+      if (part.fieldname === "isPublic" && part.value !== undefined) {
+        isPublicValue = String(part.value) === "true";
+      }
+    }
+  }
+
+  if (!filePart) {
     return reply.status(400).send({ error: "No file provided" });
   }
 
   const globalAllowedMimeTypes = getAllowedMimeTypes();
-  const isPublicUpload = options.isPublic === true;
-  const allowedByPolicy = globalAllowedMimeTypes ? globalAllowedMimeTypes.has(part.mimetype) : true;
-  const allowedByPublicRules = isPublicUpload ? PUBLIC_UPLOAD_ALLOWED_MIME.has(part.mimetype) : true;
+  const isPublicUpload = isPublicValue === true;
+  const allowedByPolicy = globalAllowedMimeTypes ? globalAllowedMimeTypes.has(filePart.mimetype) : true;
+  const allowedByPublicRules = isPublicUpload ? PUBLIC_UPLOAD_ALLOWED_MIME.has(filePart.mimetype) : true;
 
   if (!allowedByPolicy || !allowedByPublicRules) {
     return reply.status(415).send({
       error: "Unsupported media type",
-      message: `File type ${part.mimetype} is not allowed`,
+      message: `File type ${filePart.mimetype} is not allowed`,
     });
   }
 
   const fileId = uuidv7();
-  const ext = safeExtension(part.filename);
+  const ext = safeExtension(filePart.filename);
   const storageKey = `${fileId}${ext}`;
   const filePath = path.join(uploadsDir(), storageKey);
 
-  await pipeline(part.file, fs.createWriteStream(filePath));
+  await pipeline(filePart.file, fs.createWriteStream(filePath));
   const stats = fs.statSync(filePath);
   const expiresAt = buildUploadExpiry();
 
@@ -366,9 +379,9 @@ async function handleUpload(
       newValue: {
         id: fileId,
         tenantId: options.tenantId,
-        isPublic: options.isPublic,
-        originalName: part.filename,
-        contentType: part.mimetype,
+        isPublic: isPublicUpload,
+        originalName: filePart.filename,
+        contentType: filePart.mimetype,
         sizeBytes: stats.size,
         status: "REJECTED",
         lastError: scan.lastError,
@@ -385,10 +398,10 @@ async function handleUpload(
   await db.insert(uploadedFiles).values({
     id: fileId,
     tenantId: options.tenantId,
-    isPublic: options.isPublic,
+    isPublic: isPublicUpload,
     storageKey,
-    originalName: part.filename,
-    contentType: part.mimetype,
+    originalName: filePart.filename,
+    contentType: filePart.mimetype,
     sizeBytes: stats.size,
     status: "UPLOADED",
     expiresAt,
@@ -412,10 +425,10 @@ async function handleUpload(
     newValue: {
       id: fileId,
       tenantId: options.tenantId,
-      isPublic: options.isPublic,
+      isPublic: isPublicUpload,
       storageKey,
-      originalName: part.filename,
-      contentType: part.mimetype,
+      originalName: filePart.filename,
+      contentType: filePart.mimetype,
       sizeBytes: stats.size,
       status: "UPLOADED",
     },
@@ -423,11 +436,11 @@ async function handleUpload(
 
   const response: FileMetaResponse = {
     fileId,
-    originalName: part.filename,
-    contentType: part.mimetype,
+    originalName: filePart.filename,
+    contentType: filePart.mimetype,
     sizeBytes: stats.size,
     status: "UPLOADED",
-    isImage: isImageContentType(part.mimetype),
+    isImage: isImageContentType(filePart.mimetype),
     ...urls,
   };
 
@@ -436,6 +449,10 @@ async function handleUpload(
 
 export const uploadsRoutes: FastifyPluginAsync = async (fastify) => {
   ensureUploadsDir();
+
+  fastify.addHook("onSend", async (_request, reply, _payload) => {
+    reply.header("Cross-Origin-Resource-Policy", "cross-origin");
+  });
 
   if (env.UPLOAD_ORPHAN_CLEANUP_ENABLED) {
     const intervalMs = env.UPLOAD_ORPHAN_CLEANUP_INTERVAL_MINUTES * 60_000;
@@ -476,40 +493,40 @@ export const uploadsRoutes: FastifyPluginAsync = async (fastify) => {
     "/:id",
     { config: { rateLimit: rateLimitConfig.global } },
     async (request, reply) => {
-    const { id } = request.params;
+      const { id } = request.params;
 
-    const [row] = await db
-      .select()
-      .from(uploadedFiles)
-      .where(eq(uploadedFiles.id, id))
-      .limit(1);
+      const [row] = await db
+        .select()
+        .from(uploadedFiles)
+        .where(eq(uploadedFiles.id, id))
+        .limit(1);
 
-    if (!row) {
-      return reply.status(404).send({ error: "File not found" });
-    }
+      if (!row) {
+        return reply.status(404).send({ error: "File not found" });
+      }
 
-     const actor = await resolveActorForRead(request);
-     if (!canReadUpload({ isPublic: row.isPublic, tenantId: row.tenantId }, actor)) {
-       return reply.status(404).send({ error: "File not found" });
-     }
+      const actor = await resolveActorForRead(request);
+      if (!canReadUpload({ isPublic: row.isPublic, tenantId: row.tenantId }, actor)) {
+        return reply.status(404).send({ error: "File not found" });
+      }
 
-    const urls = buildFileUrls({
-      request,
-      fileId: row.id,
-      storageKey: row.storageKey,
-    });
+      const urls = buildFileUrls({
+        request,
+        fileId: row.id,
+        storageKey: row.storageKey,
+      });
 
-    const response: FileMetaResponse = {
-      fileId: row.id,
-      originalName: row.originalName,
-      contentType: row.contentType,
-      sizeBytes: row.sizeBytes,
-      status: row.status,
-      isImage: isImageContentType(row.contentType),
-      ...urls,
-    };
+      const response: FileMetaResponse = {
+        fileId: row.id,
+        originalName: row.originalName,
+        contentType: row.contentType,
+        sizeBytes: row.sizeBytes,
+        status: row.status,
+        isImage: isImageContentType(row.contentType),
+        ...urls,
+      };
 
-    return reply.send(response);
+      return reply.send(response);
     }
   );
 
@@ -556,7 +573,6 @@ export const uploadsRoutes: FastifyPluginAsync = async (fastify) => {
 
       reply.header("Content-Type", row.contentType);
       reply.header("X-Content-Type-Options", "nosniff");
-      reply.header("Cross-Origin-Resource-Policy", "cross-origin");
 
       const dispositionType = !download && isImage ? "inline" : "attachment";
       const safeName = row.originalName.replace(/[\r\n"]/g, "_");
@@ -574,38 +590,38 @@ export const uploadsRoutes: FastifyPluginAsync = async (fastify) => {
     "/:id",
     { config: { rateLimit: rateLimitConfig.upload }, preHandler: [requireAnyAuth()] },
     async (request, reply) => {
-    const { id } = request.params;
+      const { id } = request.params;
 
-     const actor = actorFromRequest(request);
+      const actor = actorFromRequest(request);
 
-     const [row] = await db
-       .select()
-       .from(uploadedFiles)
-       .where(buildWriteWhere(id, actor))
-       .limit(1);
+      const [row] = await db
+        .select()
+        .from(uploadedFiles)
+        .where(buildWriteWhere(id, actor))
+        .limit(1);
 
-     if (!row) {
-       return reply.status(404).send({ error: "File not found" });
-     }
+      if (!row) {
+        return reply.status(404).send({ error: "File not found" });
+      }
 
-    if (row.status !== "UPLOADED") {
-      return reply.status(409).send({
-        error: "Cannot delete",
-        message: `File status is ${row.status}`,
-      });
-    }
+      if (row.status !== "UPLOADED") {
+        return reply.status(409).send({
+          error: "Cannot delete",
+          message: `File status is ${row.status}`,
+        });
+      }
 
-    const filePath = path.join(uploadsDir(), row.storageKey);
-    try {
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      await db
-        .update(uploadedFiles)
-        .set({ lastError: message })
-        .where(eq(uploadedFiles.id, id));
-      throw error;
-    }
+      const filePath = path.join(uploadsDir(), row.storageKey);
+      try {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await db
+          .update(uploadedFiles)
+          .set({ lastError: message })
+          .where(eq(uploadedFiles.id, id));
+        throw error;
+      }
 
       await db
         .update(uploadedFiles)
@@ -622,7 +638,7 @@ export const uploadsRoutes: FastifyPluginAsync = async (fastify) => {
         oldValue: row as Record<string, unknown>,
       });
 
-    return reply.send({ ok: true });
+      return reply.send({ ok: true });
     }
   );
 
@@ -634,7 +650,7 @@ export const uploadsRoutes: FastifyPluginAsync = async (fastify) => {
       const { id } = request.params;
       const { entityType, entityId } = request.body || {};
 
-       const actor = actorFromRequest(request);
+      const actor = actorFromRequest(request);
 
       if (!isNonEmptyString(entityType) || !isNonEmptyString(entityId)) {
         return reply
@@ -712,26 +728,26 @@ export const uploadsRoutes: FastifyPluginAsync = async (fastify) => {
     "/:id/detach",
     { config: { rateLimit: rateLimitConfig.upload }, preHandler: [requireAnyAuth()] },
     async (request, reply) => {
-    const { id } = request.params;
+      const { id } = request.params;
 
-     const actor = actorFromRequest(request);
+      const actor = actorFromRequest(request);
 
-     const [row] = await db
-       .select()
-       .from(uploadedFiles)
-       .where(buildWriteWhere(id, actor))
-       .limit(1);
+      const [row] = await db
+        .select()
+        .from(uploadedFiles)
+        .where(buildWriteWhere(id, actor))
+        .limit(1);
 
-    if (!row) {
-      return reply.status(404).send({ error: "File not found" });
-    }
+      if (!row) {
+        return reply.status(404).send({ error: "File not found" });
+      }
 
-     if (row.status === "DELETED" || row.status === "PURGED") {
-       return reply.status(409).send({
-         error: "Cannot detach",
-         message: "File has already been deleted",
-       });
-     }
+      if (row.status === "DELETED" || row.status === "PURGED") {
+        return reply.status(409).send({
+          error: "Cannot detach",
+          message: "File has already been deleted",
+        });
+      }
 
       await db
         .update(uploadedFiles)
@@ -760,13 +776,17 @@ export const uploadsRoutes: FastifyPluginAsync = async (fastify) => {
         } as Record<string, unknown>,
       });
 
-    return reply.send({ ok: true });
+      return reply.send({ ok: true });
     }
   );
 };
 
 export const publicUploadsRoutes: FastifyPluginAsync = async (fastify) => {
   ensureUploadsDir();
+
+  fastify.addHook("onSend", async (_request, reply, _payload) => {
+    reply.header("Cross-Origin-Resource-Policy", "cross-origin");
+  });
 
   fastify.post(
     "/",
