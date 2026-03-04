@@ -1,3 +1,4 @@
+import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -6,7 +7,7 @@ import { absoluteUrl, breadcrumbList } from "@/lib/seo/jsonld";
 import { getPublicImageUrl } from "@/lib/utils";
 import { PublicBreadcrumbs } from "@/components/layout/PublicBreadcrumbs";
 
-export const revalidate = 60 * 60 * 3;
+export const revalidate = 10800; // 3 hours
 
 type PublicTag = {
   id: string;
@@ -32,12 +33,21 @@ type PublicPostListing = {
   authorName: string | null;
 };
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const apiBase = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3020";
-  const res = await fetch(`${apiBase}${url}`, { next: { revalidate } });
-  if (!res.ok) throw new Error(`Request failed: ${url}`);
-  return (await res.json()) as T;
-}
+const apiBase = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3020";
+
+const getTag = cache(async (slug: string): Promise<PublicTag | null> => {
+  try {
+    const res = await fetch(
+      `${apiBase}/api/public/blog-tags/slug/${encodeURIComponent(slug)}`,
+      { next: { revalidate } },
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json?.data ?? null;
+  } catch {
+    return null;
+  }
+});
 
 function toKeywords(value: string | null | undefined): string[] | undefined {
   if (!value) return undefined;
@@ -54,19 +64,15 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
+  const tag = await getTag(slug);
 
-  const res = await fetchJson<{ success: true; data: PublicTag }>(
-    `/api/public/blog-tags/slug/${encodeURIComponent(slug)}`,
-  ).catch(() => null);
-
-  if (!res?.data) {
+  if (!tag) {
     return {
       title: "Tag Not Found",
       robots: { index: false, follow: false },
     };
   }
 
-  const tag = res.data;
   const title = tag.metaTitle?.trim() || tag.name;
   const description =
     tag.metaDescription?.trim() || tag.description?.trim() || undefined;
@@ -98,21 +104,18 @@ export default async function TagPage({
 }) {
   const { slug } = await params;
 
-  const tagRes = await fetchJson<{ success: true; data: PublicTag }>(
-    `/api/public/blog-tags/slug/${encodeURIComponent(slug)}`,
-  ).catch(() => null);
+  const [tag, postsRes] = await Promise.all([
+    getTag(slug),
+    fetch(`${apiBase}/api/public/blog-posts?tagSlug=${encodeURIComponent(slug)}&limit=24`, {
+      next: { revalidate },
+    })
+      .then((r) => r.ok ? r.json() : { data: [] })
+      .catch(() => ({ data: [] })),
+  ]);
 
-  if (!tagRes?.data) notFound();
-  const tag = tagRes.data;
+  if (!tag) notFound();
+  const posts: PublicPostListing[] = postsRes.data ?? [];
 
-  const postsRes = await fetchJson<{
-    success: true;
-    data: PublicPostListing[];
-  }>(
-    `/api/public/blog-posts?tagSlug=${encodeURIComponent(slug)}&limit=24`,
-  ).catch(() => ({ success: true as const, data: [] }));
-
-  const posts = postsRes.data ?? [];
 
   const breadcrumbs = breadcrumbList([
     { name: "Home", url: absoluteUrl("/") },

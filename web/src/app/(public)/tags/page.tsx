@@ -5,11 +5,23 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { absoluteUrl, breadcrumbList } from "@/lib/seo/jsonld";
 import { PublicBreadcrumbs } from "@/components/layout/PublicBreadcrumbs";
 
-export const revalidate = 60 * 60 * 3;
+export const revalidate = 10800; // 3 hours
 
 export const metadata: Metadata = {
   title: "Tags",
   description: "Browse topics and discover related posts.",
+  alternates: { canonical: "/tags" },
+  openGraph: {
+    type: "website",
+    title: "Tags",
+    description: "Browse topics and discover related posts.",
+    url: "/tags",
+  },
+  twitter: {
+    card: "summary",
+    title: "Tags",
+    description: "Browse topics and discover related posts.",
+  },
 };
 
 type PublicTag = {
@@ -22,7 +34,7 @@ type PublicTag = {
 };
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const apiBase = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3005";
+  const apiBase = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3020";
   const res = await fetch(`${apiBase}${url}`, { next: { revalidate } });
   if (!res.ok) throw new Error(`Request failed: ${url}`);
   return (await res.json()) as T;
@@ -31,7 +43,7 @@ async function fetchJson<T>(url: string): Promise<T> {
 export default async function TagsPage() {
   const res = await fetchJson<{ success: true; data: PublicTag[] }>(
     "/api/public/blog-tags",
-  );
+  ).catch(() => ({ success: true as const, data: [] as PublicTag[] }));
   const tags = res.data ?? [];
 
   const breadcrumbs = breadcrumbList([

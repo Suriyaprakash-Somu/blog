@@ -7,11 +7,23 @@ import { absoluteUrl, breadcrumbList } from "@/lib/seo/jsonld";
 import { getPublicImageUrl } from "@/lib/utils";
 import { ArrowRight } from "lucide-react";
 
-export const revalidate = 60 * 60 * 3;
+export const revalidate = 10800; // 3 hours
 
 export const metadata: Metadata = {
   title: "Blog",
   description: "Browse the latest posts, announcements, and tutorials.",
+  alternates: { canonical: "/blog" },
+  openGraph: {
+    type: "website",
+    title: "Blog",
+    description: "Browse the latest posts, announcements, and tutorials.",
+    url: "/blog",
+  },
+  twitter: {
+    card: "summary",
+    title: "Blog",
+    description: "Browse the latest posts, announcements, and tutorials.",
+  },
 };
 
 type PublicPostListing = {

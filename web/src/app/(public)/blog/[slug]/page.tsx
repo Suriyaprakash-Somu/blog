@@ -1,4 +1,4 @@
-import React from "react";
+import React, { cache } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -15,7 +15,7 @@ import {
   SidebarWidgets,
 } from "@/components/blog/ClientWidgets.client";
 
-export const revalidate = 60 * 60 * 3;
+export const revalidate = 10800; // 3 hours
 
 type PublicPostDetail = {
   id: string;
@@ -39,12 +39,22 @@ type PublicPostDetail = {
   categorySlug: string | null;
 };
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const apiBase = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3005";
-  const res = await fetch(`${apiBase}${url} `, { next: { revalidate } });
-  if (!res.ok) throw new Error(`Request failed: ${url} `);
-  return (await res.json()) as T;
-}
+const apiBase = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3005";
+
+// Deduplicated fetch: generateMetadata and page component share a single call
+const getPost = cache(async (slug: string): Promise<PublicPostDetail | null> => {
+  try {
+    const res = await fetch(
+      `${apiBase}/api/public/blog-posts/${encodeURIComponent(slug)}`,
+      { next: { revalidate } },
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json?.data ?? null;
+  } catch {
+    return null;
+  }
+});
 
 function toKeywords(value: string | null | undefined): string[] | undefined {
   if (!value) return undefined;
@@ -57,7 +67,6 @@ function toKeywords(value: string | null | undefined): string[] | undefined {
 
 function asOgImage(url: string | null): string | undefined {
   if (!url) return undefined;
-  // Only include if it already looks like a URL.
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
   return undefined;
 }
@@ -68,19 +77,15 @@ export async function generateMetadata({
   params: { slug: string };
 }): Promise<Metadata> {
   const { slug } = await params;
+  const post = await getPost(slug);
 
-  const res = await fetchJson<{ success: true; data: PublicPostDetail }>(
-    `/api/public/blog-posts/${encodeURIComponent(slug)}`,
-  ).catch(() => null);
-
-  if (!res?.data) {
+  if (!post) {
     return {
       title: "Post Not Found",
       robots: { index: false, follow: false },
     };
   }
 
-  const post = res.data;
   const title = post.metaTitle?.trim() || post.title;
   const description =
     post.metaDescription?.trim() || post.excerpt?.trim() || undefined;
@@ -115,13 +120,10 @@ export default async function BlogPostPage({
   params: { slug: string };
 }) {
   const { slug } = await params;
+  const post = await getPost(slug);
 
-  const res = await fetchJson<{ success: true; data: PublicPostDetail }>(
-    `/api/public/blog-posts/${encodeURIComponent(slug)}`,
-  ).catch(() => null);
+  if (!post) notFound();
 
-  if (!res?.data) notFound();
-  const post = res.data;
 
   const breadcrumbs = breadcrumbList([
     { name: "Home", url: absoluteUrl("/") },

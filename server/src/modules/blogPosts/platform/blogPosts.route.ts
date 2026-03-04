@@ -18,72 +18,15 @@ import {
 import { requirePlatformAuth } from "../../../middlewares/auth.guard.js";
 import { platformAbilityGuard } from "../../../middlewares/ability.guard.js";
 import { ACTIONS, SUBJECTS } from "../../rbac/public/permissions.js";
+import {
+  slugify,
+  extractTableOfContents,
+  calculateReadTime,
+  extractContentImageIds,
+  robustJsonParse,
+  extractListFromTruncatedJson
+} from "../../../utils/text.js";
 
-/* ------------------------------------------------------------------ */
-/*  Utility: extract TOC from Markdown                                */
-/* ------------------------------------------------------------------ */
-
-interface TocEntry {
-  id: string;
-  text: string;
-  level: number;
-}
-
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .trim();
-}
-
-function extractTableOfContents(markdown: string): TocEntry[] {
-  const entries: TocEntry[] = [];
-  const regex = /^(#{2,5})\s+(.+)$/gm;
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(markdown)) !== null) {
-    const level = match[1].length; // 2–5
-    const text = match[2].trim();
-    entries.push({
-      id: slugify(text),
-      text,
-      level,
-    });
-  }
-
-  return entries;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Utility: calculate read time (~200 words/min)                     */
-/* ------------------------------------------------------------------ */
-
-function calculateReadTime(markdown: string): number {
-  const words = markdown
-    .replace(/[#*_`>\[\]()!|-]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean).length;
-  return Math.max(1, Math.round(words / 200));
-}
-
-/* ------------------------------------------------------------------ */
-/*  Utility: extract image file IDs from Markdown                     */
-/* ------------------------------------------------------------------ */
-
-function extractContentImageIds(markdown: string): string[] {
-  const ids: string[] = [];
-  // Match ![alt](/api/uploads/{uuid}) or ![alt](/uploads/{uuid})
-  const regex = /!\[.*?\]\(\/(?:api\/)?uploads\/([a-f0-9-]{36})\)/gi;
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(markdown)) !== null) {
-    ids.push(match[1]);
-  }
-
-  return [...new Set(ids)];
-}
 
 /* ------------------------------------------------------------------ */
 /*  Schemas                                                           */
@@ -111,10 +54,10 @@ const { insertSchema, updateSchema } = createZodSchemas(blogPosts, {
   required: ["title", "slug"],
   strict: true,
   overrides: {
-    featuredImageFileId: z.string().uuid().optional(),
-    categoryId: z.string().uuid().optional(),
+    featuredImageFileId: z.string().uuid().nullable().optional(),
+    categoryId: z.string().uuid().nullable().optional(),
     secondaryCategoryIds: z.array(z.string().uuid()).optional(),
-    authorId: z.string().uuid().optional(),
+    authorId: z.string().uuid().nullable().optional(),
     faq: z
       .array(z.object({ question: z.string(), answer: z.string() }))
       .optional(),
@@ -264,7 +207,7 @@ const crudRoutes = createCrudRoutes({
         ctx,
       );
     }
-    
+
     // Assign author to current platform user
     postData.authorId = (ctx.req as any).platformUser?.user?.id;
     postData.authorType = "platform";
@@ -411,6 +354,7 @@ const blogPostsGenerateRoute: FastifyPluginAsync = async (fastify) => {
         });
 
         console.log(`[GENERATION] Raw text received. Length:`, rawText.length);
+        console.log(`[GENERATION] Raw LLM response (first 1000 chars):`, rawText.slice(0, 1000));
 
         let text = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
         const firstBrace = text.indexOf('{');
@@ -418,92 +362,25 @@ const blogPostsGenerateRoute: FastifyPluginAsync = async (fastify) => {
         if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
           text = text.substring(firstBrace, lastBrace + 1);
         }
+        const parsedData = robustJsonParse<any>(text, {
+          slug: "",
+          metaTitle: "",
+          metaDescription: "",
+          metaKeywords: "",
+          excerpt: "",
+          content: text
+        });
 
-        let parsedData: any = null;
-        try {
-          parsedData = JSON.parse(text);
-          console.log(`[GENERATION] Strict JSON parse successful.`);
-        } catch (e) {
-          console.warn(`[GENERATION] Strict JSON parsing failed. Attempting regex fallback...`);
+        // Only use specialized list extractor as fallback if FAQ is missing
+        if (!parsedData.faq || !Array.isArray(parsedData.faq) || parsedData.faq.length === 0) {
+          console.log(`[GENERATION] FAQ not found in parsed data, trying extractListFromTruncatedJson...`);
+          parsedData.faq = extractListFromTruncatedJson(text, "faq");
+        }
 
-          const extractField = (fieldName: string) => {
-            const regex = new RegExp(`"${fieldName}"\\s*:\\s*"((?:[^"\\\\]|\\\\[\\s\\S])*)(?:"|$)`, 'i');
-            const match = text.match(regex);
-            if (match && match[1]) {
-              return match[1]
-                .replace(/\\"/g, '"')
-                .replace(/\\n/g, '\n')
-                .replace(/\\t/g, '\t')
-                .replace(/\\\\/g, '\\');
-            }
-            return "";
-          };
-
-          const extractFaqList = () => {
-            try {
-              // Grab everything from "faq": [ ... up to the end of the text
-              const faqMatch = text.match(/"faq"\s*:\s*(\[\s*\{[\s\S]*)/i);
-              if (faqMatch && faqMatch[1]) {
-                let faqStr = faqMatch[1];
-                // Try to close JSON cleanly if truncated
-                let bracketsCount = (faqStr.match(/\{/g) || []).length;
-                let closingBracketsCount = (faqStr.match(/\}/g) || []).length;
-
-                // If not balanced, try terminating gracefully
-                if (bracketsCount > closingBracketsCount) {
-                  faqStr = faqStr.substring(0, faqStr.lastIndexOf('}'));
-                  faqStr += "}]";
-                }
-
-                // Strip trailing comma before list closure if any
-                faqStr = faqStr.replace(/,\s*\]/, ']');
-
-                try {
-                  const parsed = JSON.parse(faqStr);
-                  if (Array.isArray(parsed)) return parsed;
-                } catch (fallbackParseErr) {
-                  // If still malformed, just string match question/answer explicitly
-                  const arr: any[] = [];
-                  const qRegex = /"question"\s*:\s*"((?:[^"\\\\]|\\\\[\\s\\S])*)"\s*,\s*"answer"\s*:\s*"((?:[^"\\\\]|\\\\[\\s\\S])*)"/gi;
-                  let qMatch;
-                  while ((qMatch = qRegex.exec(faqStr)) !== null) {
-                    arr.push({
-                      question: qMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n'),
-                      answer: qMatch[2].replace(/\\"/g, '"').replace(/\\n/g, '\n')
-                    });
-                  }
-                  return arr;
-                }
-              }
-            } catch (ignore) { }
-            return [];
-          };
-
-          const extractedData = {
-            slug: extractField("slug"),
-            metaTitle: extractField("metaTitle"),
-            metaDescription: extractField("metaDescription"),
-            metaKeywords: extractField("metaKeywords"),
-            excerpt: extractField("excerpt"),
-            content: extractField("content"),
-            faq: extractFaqList()
-          };
-
-          if (extractedData.content || extractedData.metaTitle) {
-            console.log(`[GENERATION] Regex fallback extracted content!`);
-            parsedData = extractedData;
-          } else {
-            console.log(`[GENERATION] Ultimate fallback: returning raw text as content.`);
-            parsedData = {
-              slug: "",
-              metaTitle: "",
-              metaDescription: "",
-              metaKeywords: "",
-              excerpt: "",
-              content: text,
-              faq: []
-            };
-          }
+        console.log(`[GENERATION] Parsed data keys:`, Object.keys(parsedData));
+        console.log(`[GENERATION] FAQ items found:`, parsedData.faq?.length || 0);
+        if (parsedData.faq?.length > 0) {
+          console.log(`[GENERATION] First FAQ:`, JSON.stringify(parsedData.faq[0]));
         }
 
         console.log(`[GENERATION] Schema validation running...`);

@@ -5,7 +5,7 @@ import { LandingFeatures } from "@/components/landing/LandingFeatures";
 import { LandingStats } from "@/components/landing/LandingStats";
 import { LandingNewsletter } from "@/components/landing/LandingNewsletter";
 
-export const revalidate = 60 * 60 * 3;
+export const revalidate = 10800; // 3 hours
 
 type FeaturedCollectionResponse<T> = {
   success: true;

@@ -74,6 +74,12 @@ export const MODULE_BINDINGS: Record<string, ModuleBinding> = {
     routeBase: "/platform/newsletter",
     subject: Subjects.PLATFORM_ADMIN,
   },
+  "platform.automation": {
+    moduleKey: "platform.automation",
+    scope: "platform",
+    routeBase: "/platform/automation/rss-sources",
+    subject: Subjects.PLATFORM_SETTINGS,
+  },
   "tenant.users": {
     moduleKey: "tenant.users",
     scope: "tenant",

@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/dataTable/DataTable";
@@ -7,6 +10,10 @@ import { platformBlogPostsApi } from "@/lib/api/platform-blog-posts";
 import { BlogPostForm } from "./BlogPostForm";
 import type { PlatformBlogPost } from "./types";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Sparkles } from "lucide-react";
+import { generateDraftFromRss } from "@/lib/api/automation";
+import { toast } from "sonner";
 
 const postFilterSchema = z.object({
   title: z.string().optional().describe("Title"),
@@ -18,11 +25,40 @@ const postFilterSchema = z.object({
 });
 
 export function ManageBlogPostsPage() {
+  const queryClient = useQueryClient();
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Blog Posts"
         description="Create and manage blog posts across the platform."
+        actions={
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                const toastId = toast.loading("Generating draft post from RSS...");
+                try {
+                  const result = await generateDraftFromRss();
+                  console.log("[RSS Generate] Response:", result);
+                  if (result?.success) {
+                    toast.success(result.title ? `Draft generated: ${result.title}` : "Draft generated successfully!", { id: toastId });
+                    // Revalidate the table data
+                    queryClient.invalidateQueries({ queryKey: [platformBlogPostsApi.getList.key] });
+                  } else {
+                    toast.error(result?.message || "Failed to generate draft", { id: toastId });
+                  }
+                } catch (err: any) {
+                  console.error("[RSS Generate] Error:", err);
+                  toast.error(err?.message || "Generation failed", { id: toastId });
+                }
+              }}
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              Generate from RSS
+            </Button>
+          </div>
+        }
       />
 
       <DataTable<PlatformBlogPost>

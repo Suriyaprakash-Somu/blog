@@ -167,6 +167,26 @@ export const MODULE_POLICIES: ModulePolicy[] = [
       visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.PLATFORM_SETTINGS },
     },
   },
+  {
+    moduleKey: "platform.automation",
+    scope: "platform",
+    subject: SUBJECTS.PLATFORM_SETTINGS,
+    routeBase: "/platform/automation/rss-sources",
+    navigation: {
+      title: "RSS Sources",
+      path: "/platform/automation/rss-sources",
+      iconKey: "rss",
+      section: "Content",
+      order: 5,
+      visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.PLATFORM_SETTINGS },
+    },
+    crud: {
+      key: "rssSources",
+      mode: "platform",
+      tenantScope: false,
+      operations: crudFull(SUBJECTS.PLATFORM_SETTINGS),
+    },
+  },
 
   // --- Audience ---
   {

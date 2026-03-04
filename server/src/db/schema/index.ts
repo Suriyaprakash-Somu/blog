@@ -51,3 +51,6 @@ export * from "../../modules/featured/featured.schema.js";
 
 // Newsletter
 export * from "../../modules/newsletter/newsletter.schema.js";
+
+// Automation
+export * from "../../modules/automation/automation.schema.js";

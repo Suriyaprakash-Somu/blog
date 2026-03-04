@@ -33,6 +33,7 @@ export const PLATFORM_ROUTES = {
   blogPosts: "/api/platform/blog-posts",
   featured: "/api/platform/featured",
   newsletter: "/api/platform/newsletter",
+  automation: "/api/platform/automation",
 } as const;
 
 export const TENANT_ROUTES = {

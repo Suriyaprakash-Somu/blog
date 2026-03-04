@@ -18,15 +18,32 @@ function escapeXml(unsafe: string) {
     });
 }
 
+async function getSiteName(): Promise<string> {
+    try {
+        const res = await fetch(`${API_URL}/api/public/settings`, {
+            next: { revalidate: 300 },
+        });
+        if (!res.ok) return "Indian Context";
+        const { rows } = await res.json();
+        const identity = rows?.find((r: any) => r.key === "site_identity")?.value;
+        return identity?.siteName?.trim() || "Indian Context";
+    } catch {
+        return "Indian Context";
+    }
+}
+
 export async function GET() {
     try {
-        const res = await fetch(`${API_URL}/api/public/seo/rss`, {
-            next: { revalidate: 43200 }
-        });
+        const [postsRes, siteName] = await Promise.all([
+            fetch(`${API_URL}/api/public/seo/rss`, {
+                next: { revalidate: 43200 }
+            }),
+            getSiteName(),
+        ]);
 
-        if (!res.ok) throw new Error("Failed to fetch RSS data");
+        if (!postsRes.ok) throw new Error("Failed to fetch RSS data");
 
-        const { data: posts } = await res.json();
+        const { data: posts } = await postsRes.json();
 
         const rssItems = posts
             .map((post: any) => `
@@ -40,13 +57,14 @@ export async function GET() {
             .join("");
 
         const rss = `<?xml version="1.0" encoding="UTF-8" ?>
-<rss version="2.0">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>Indian Context</title>
+    <title>${escapeXml(siteName)}</title>
     <link>${BASE_URL}</link>
-    <description>The latest stories from Indian Context</description>
+    <description>The latest stories from ${escapeXml(siteName)}</description>
     <language>en-us</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+    <atom:link href="${BASE_URL}/rss.xml" rel="self" type="application/rss+xml"/>
     ${rssItems}
   </channel>
 </rss>`;
@@ -61,3 +79,4 @@ export async function GET() {
         return new NextResponse("Internal Server Error", { status: 500 });
     }
 }
+

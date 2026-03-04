@@ -4,6 +4,7 @@ import "./globals.css";
 import Providers from "./providers";
 import { serverFetch } from "@/lib/server-fetch";
 import type { BannerRow } from "@/lib/banner/types";
+import { getPublicSiteSettings } from "@/lib/api/public-settings";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,16 +16,29 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3015",
-  ),
-  title: {
-    default: "Blog Platform",
-    template: "%s | Blog Platform",
-  },
-  description: "Modern content platform with curated collections.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getPublicSiteSettings();
+  const siteName = settings.identity.siteName || "Indian Context";
+
+  return {
+    metadataBase: new URL(
+      process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3015",
+    ),
+    title: {
+      default: siteName,
+      template: `%s | ${siteName}`,
+    },
+    description: `The latest stories and analysis from ${siteName}.`,
+    openGraph: {
+      siteName,
+    },
+    alternates: {
+      types: {
+        "application/rss+xml": "/rss.xml",
+      },
+    },
+  };
+}
 
 export function reportWebVitals(metric: {
   id: string;
