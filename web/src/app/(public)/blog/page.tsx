@@ -82,6 +82,9 @@ export default async function BlogIndexPage() {
             <Link
               key={post.id}
               href={`/blog/${post.slug}`}
+              data-article-click="true"
+              data-article-slug={post.slug}
+              data-article-title={post.title}
               className="group relative flex flex-col justify-end rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 ring-1 ring-border/40 hover:ring-primary/40 bg-muted/60 min-h-[460px] sm:min-h-[420px]"
             >
               {/* Full Background Image */}

@@ -73,6 +73,9 @@ export function LandingFeaturedPosts({ posts }: { posts: LandingPost[] }) {
             >
               <Link
                 href={`/blog/${post.slug}`}
+                data-article-click="true"
+                data-article-slug={post.slug}
+                data-article-title={post.title}
                 className="group block h-full rounded-2xl border bg-background/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-all overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <div className="aspect-video w-full bg-linear-to-br from-primary/10 via-accent/5 to-secondary/15">

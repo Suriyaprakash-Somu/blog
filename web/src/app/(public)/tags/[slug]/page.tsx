@@ -155,6 +155,9 @@ export default async function TagPage({
             <Link
               key={post.id}
               href={`/blog/${post.slug}`}
+              data-article-click="true"
+              data-article-slug={post.slug}
+              data-article-title={post.title}
               className="group flex flex-col items-start justify-between bg-card text-card-foreground rounded-2xl border overflow-hidden shadow-sm hover:shadow-md transition-all duration-300"
             >
               {post.featuredImageUrl ? (

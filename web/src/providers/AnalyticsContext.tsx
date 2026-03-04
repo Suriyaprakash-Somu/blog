@@ -36,6 +36,11 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
   const flushingRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
 
+  // Track scroll milestones
+  const scrolledMilestones = useRef(new Set<number>());
+  // Track time on page
+  const pageEnterTime = useRef<number>(Date.now());
+
   const endpoint = tenantScope
     ? tenantAnalyticsApi.trackBatch.endpoint
     : publicAnalyticsApi.trackBatch.endpoint;
@@ -120,6 +125,18 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [endpoint, tenantScope, baseUrl]);
 
+  // Track Time On Page before leaving
+  const trackTimeOnPage = useCallback(() => {
+    if (!pathname) return;
+    const durationMs = Date.now() - pageEnterTime.current;
+    if (durationMs > 1000) { // Only track if they stayed at least 1 second
+      enqueue("TIME_ON_PAGE", {
+        path: pathname,
+        durationSeconds: Math.round(durationMs / 1000),
+      });
+    }
+  }, [pathname, enqueue]);
+
   useEffect(() => {
     const timer = window.setInterval(() => {
       void flushQueue();
@@ -127,11 +144,16 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
 
     const onVisibility = () => {
       if (document.visibilityState === "hidden") {
+        trackTimeOnPage();
         void flushQueue();
+      } else {
+        // Reset enter time when coming back
+        pageEnterTime.current = Date.now();
       }
     };
 
     const onBeforeUnload = () => {
+      trackTimeOnPage();
       void flushQueue();
     };
 
@@ -144,7 +166,93 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("beforeunload", onBeforeUnload);
       void flushQueue();
     };
-  }, [flushQueue]);
+  }, [flushQueue, trackTimeOnPage]);
+
+  // Global click tracker for outbound links and data-analytics elements
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+
+      // Check for data-analytics attribute anywhere in the clicked tree
+      const analyticsElem = target.closest('[data-analytics]');
+      if (analyticsElem) {
+        const id = analyticsElem.getAttribute('data-analytics');
+        if (id) {
+          enqueue("CTA_CLICK", { id, path: window.location.pathname });
+        }
+      }
+
+      // Check for article click attribute anywhere in the clicked tree
+      const articleElem = target.closest('[data-article-click]');
+      if (articleElem) {
+        const slug = articleElem.getAttribute('data-article-slug');
+        const title = articleElem.getAttribute('data-article-title');
+        if (slug) {
+          enqueue("ARTICLE_CLICK", { slug, title, path: window.location.pathname });
+        }
+      }
+
+      // Check for outbound links
+      const link = target.closest('a');
+      if (link && link.href) {
+        try {
+          const url = new URL(link.href);
+          if (url.origin !== window.location.origin) {
+            enqueue("OUTBOUND_CLICK", {
+              url: link.href,
+              path: window.location.pathname,
+            });
+          }
+        } catch {
+          // invalid url, ignore
+        }
+      }
+    };
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, [enqueue]);
+
+  // Scroll depth tracking
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollHeight = document.documentElement.scrollHeight;
+      const clientHeight = document.documentElement.clientHeight;
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+
+      // Calculate percentage (avoid division by zero)
+      const scrollable = scrollHeight - clientHeight;
+      if (scrollable <= 0) return;
+
+      const percentage = (scrollTop / scrollable) * 100;
+
+      const milestones = [25, 50, 75, 100];
+      for (const milestone of milestones) {
+        if (percentage >= milestone && !scrolledMilestones.current.has(milestone)) {
+          scrolledMilestones.current.add(milestone);
+          enqueue("SCROLL_DEPTH", {
+            path: window.location.pathname,
+            depth: milestone,
+          });
+        }
+      }
+    };
+
+    // Throttle scroll event
+    let ticking = false;
+    const scrollListener = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", scrollListener);
+    return () => window.removeEventListener("scroll", scrollListener);
+  }, [enqueue, pathname]);
 
   const value = useMemo<AnalyticsContextValue>(
     () => ({
@@ -155,7 +263,39 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!pathname) return;
-    enqueue("PAGE_VIEW", { path: pathname });
+
+    // Reset page-level state on navigation
+    scrolledMilestones.current.clear();
+    pageEnterTime.current = Date.now();
+
+    // Gather rich context for PAGE_VIEW
+    const searchParams = new URLSearchParams(window.location.search);
+    const utms = {
+      source: searchParams.get("utm_source"),
+      medium: searchParams.get("utm_medium"),
+      campaign: searchParams.get("utm_campaign"),
+      term: searchParams.get("utm_term"),
+      content: searchParams.get("utm_content"),
+    };
+
+    // Only include UTMs if they exist
+    const activeUtms = Object.fromEntries(
+      Object.entries(utms).filter(([_, v]) => v !== null)
+    );
+
+    // Get device info
+    const device = {
+      userAgent: window.navigator.userAgent,
+      language: window.navigator.language,
+      screen: `${window.screen.width}x${window.screen.height}`,
+      referrer: document.referrer || undefined,
+    };
+
+    enqueue("PAGE_VIEW", {
+      path: pathname,
+      ...activeUtms,
+      ...device,
+    });
   }, [enqueue, pathname]);
 
   return <AnalyticsContext.Provider value={value}>{children}</AnalyticsContext.Provider>;
