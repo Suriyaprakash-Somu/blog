@@ -32,6 +32,7 @@ export function buildSessionCookieOptions(env: Env, expiresAt: Date) {
     secure: env.COOKIE_SECURE,
     path: "/",
     expires: expiresAt,
+    ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN as string } : {}),
   } as const;
 }
 
@@ -42,6 +43,7 @@ export function buildCsrfCookieOptions(env: Env, expiresAt: Date) {
     secure: env.COOKIE_SECURE,
     path: "/",
     expires: expiresAt,
+    ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN as string } : {}),
   } as const;
 }
 
@@ -52,6 +54,7 @@ export function buildImpersonationCookieOptions(env: Env, expiresAt: Date) {
     secure: env.COOKIE_SECURE,
     path: "/",
     expires: expiresAt,
+    ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN as string } : {}),
   } as const;
 }
 
@@ -66,6 +69,7 @@ export function clearSessionCookie(reply: FastifyReply, env: Env, cookieName: st
     path: "/",
     sameSite: env.COOKIE_SAME_SITE,
     secure: env.COOKIE_SECURE,
+    ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN as string } : {}),
   });
 }
 
@@ -74,5 +78,6 @@ export function clearCsrfCookie(reply: FastifyReply, env: Env) {
     path: "/",
     sameSite: env.CSRF_COOKIE_SAME_SITE,
     secure: env.COOKIE_SECURE,
+    ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN as string } : {}),
   });
 }

@@ -41,6 +41,7 @@ const envSchema = z.object({
   COOKIE_SAME_SITE: z.enum(["lax", "strict", "none"]).optional(),
   CSRF_COOKIE_SAME_SITE: z.enum(["lax", "strict", "none"]).optional(),
   COOKIE_SECURE: booleanFromEnv.optional(),
+  COOKIE_DOMAIN: z.string().min(1).optional(),
   CSRF_COOKIE_NAME: z.string().min(1).optional(),
   CSRF_HEADER_NAME: z.string().min(1).optional(),
 
@@ -132,6 +133,7 @@ function resolveEnv(env: EnvInput) {
     COOKIE_SAME_SITE: env.COOKIE_SAME_SITE ?? "lax",
     CSRF_COOKIE_SAME_SITE: env.CSRF_COOKIE_SAME_SITE ?? "lax",
     COOKIE_SECURE: env.COOKIE_SECURE ?? env.NODE_ENV === "production",
+    COOKIE_DOMAIN: env.COOKIE_DOMAIN as string | undefined,
     CSRF_COOKIE_NAME: env.CSRF_COOKIE_NAME ?? "csrf_token",
     CSRF_HEADER_NAME: env.CSRF_HEADER_NAME ?? "x-csrf-token",
   } as const;

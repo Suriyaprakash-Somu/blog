@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3015",
-    "build": "next build",
-    "start": "next start -p 3015",
+    "build": "next build -p 3015",
+    "start": "next start",
     "lint": "biome lint src --only=suspicious/noExplicitAny --diagnostic-level=error --skip-parse-errors",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check:route-contract": "node ../scripts/check-route-contract.mjs",

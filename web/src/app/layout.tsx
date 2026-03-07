@@ -37,6 +37,13 @@ export async function generateMetadata(): Promise<Metadata> {
         "application/rss+xml": "/rss.xml",
       },
     },
+    ...(settings.logos.faviconUrl && {
+      icons: {
+        icon: settings.logos.faviconUrl,
+        apple: settings.logos.faviconUrl,
+        shortcut: settings.logos.faviconUrl,
+      },
+    }),
   };
 }
 

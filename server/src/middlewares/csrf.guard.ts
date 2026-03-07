@@ -37,15 +37,37 @@ export function csrfGuard() {
 
     const hasSession = Boolean(
       request.cookies?.[TENANT_SESSION_COOKIE] ||
-        request.cookies?.[PLATFORM_SESSION_COOKIE]
+      request.cookies?.[PLATFORM_SESSION_COOKIE]
     );
 
     if (!hasSession) return;
 
+    let isValid = false;
+
+    // Check 1: Using Fastify's built-in parsed cookies
     const csrfCookie = request.cookies?.[env.CSRF_COOKIE_NAME];
     const csrfHeader = getHeaderValue(request, env.CSRF_HEADER_NAME);
 
-    if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
+    if (csrfCookie && csrfHeader && csrfCookie === csrfHeader) {
+      isValid = true;
+    }
+
+    // Check 2: Fallback for duplicate cookies
+    // If domain changes occur, the browser may send multiple cookies with the same name.
+    // Fastify's parser only picks one. We check the raw cookie header to see if the
+    // expected token exists as *any* of the cookies.
+    if (!isValid && csrfHeader) {
+      const cookieHeader = getHeaderValue(request, "cookie");
+      if (cookieHeader) {
+        const rawCookies = cookieHeader.split(";").map((c) => c.trim());
+        const targetString = `${env.CSRF_COOKIE_NAME}=${csrfHeader}`;
+        if (rawCookies.includes(targetString)) {
+          isValid = true;
+        }
+      }
+    }
+
+    if (!isValid) {
       throw new ForbiddenError("Invalid CSRF token");
     }
   };
