@@ -1,8 +1,9 @@
 "use client";
 
 import { z } from "zod";
+import { useApiMutation } from "@/hooks/useApiMutation";
 import { SchemaForm } from "@/components/form/SchemaForm";
-import { platformAutomationApi } from "@/lib/api/automation";
+import { type RssSource, platformAutomationApi } from "@/lib/api/automation";
 
 const rssSourceSchema = z.object({
     name: z.string().min(1, "Name is required").describe("Name"),
@@ -19,6 +20,28 @@ interface RssSourceFormProps {
 }
 
 export function RssSourceForm({ initialValues, id, onSuccess }: RssSourceFormProps) {
+    const isEdit = !!id;
+
+    const mutation = useApiMutation<RssSource, RssSourceFormValues>({
+        method: isEdit ? "PATCH" : "POST",
+        endpoint: isEdit
+            ? platformAutomationApi.update.endpoint({ id })
+            : platformAutomationApi.create.endpoint,
+        revalidateTags: [platformAutomationApi.getList.key],
+        onSuccess: () => {
+            onSuccess?.();
+        },
+    });
+
+    const handleSubmit = async (values: RssSourceFormValues) => {
+        try {
+            await mutation.mutateAsync(values);
+        } catch (error) {
+            // Error handling is managed by SchemaForm or toast if needed
+            // useApiMutation results in an error being thrown if it fails
+        }
+    };
+
     return (
         <SchemaForm<any>
             schema={rssSourceSchema as any}
@@ -29,23 +52,9 @@ export function RssSourceForm({ initialValues, id, onSuccess }: RssSourceFormPro
                     isActive: true,
                 }
             }
-            onSubmit={async (values: RssSourceFormValues) => {
-                if (id) {
-                    await fetch(platformAutomationApi.update.endpoint({ id }), {
-                        method: platformAutomationApi.update.method,
-                        body: JSON.stringify(values),
-                        headers: { "Content-Type": "application/json" },
-                    });
-                } else {
-                    await fetch(platformAutomationApi.create.endpoint, {
-                        method: platformAutomationApi.create.method,
-                        body: JSON.stringify(values),
-                        headers: { "Content-Type": "application/json" },
-                    });
-                }
-                onSuccess?.();
-            }}
+            onSubmit={handleSubmit}
             submitLabel={id ? "Update Source" : "Add Source"}
+            isLoading={mutation.isPending}
         />
     );
 }

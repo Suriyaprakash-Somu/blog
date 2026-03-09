@@ -203,6 +203,11 @@ export function BlogPostForm({
     revalidatePaths: ["/", "/blog", "/categories", "/tags"],
   });
 
+  const generateMutation = useApiMutation<{ data: GeneratedData }, { title: string }>({
+    endpoint: platformBlogPostsApi.generate.endpoint,
+    method: "POST",
+  });
+
   const handleGenerateWithAI = async () => {
     const form = formRef.current;
     if (!form) return;
@@ -215,13 +220,7 @@ export function BlogPostForm({
 
     setGenerating(true);
     try {
-      const result = await clientFetch<{ data: GeneratedData }>(
-        platformBlogPostsApi.generate.endpoint,
-        {
-          method: "POST",
-          body: { title },
-        },
-      );
+      const result = await generateMutation.mutateAsync({ title });
 
       const generated = result.data;
       form.setFieldValue("slug", generated.slug);

@@ -6,6 +6,7 @@ import { useDropzone, type Accept } from "react-dropzone";
 import { Download, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useApiMutation } from "@/hooks/useApiMutation";
 import { clientFetch } from "@/lib/client-fetch";
 import { fetchCore } from "@/lib/fetch-core";
 
@@ -108,6 +109,16 @@ export function FileUploadField({
     );
   }, [fileIds]);
 
+  const uploadMutation = useApiMutation<any, FormData>({
+    endpoint: uploadEndpoint,
+    method: "POST",
+  });
+
+  const detachMutation = useApiMutation<any, any>({
+    endpoint: (id: string) => `/api/uploads/${id}/detach`,
+    method: "POST",
+  });
+
   const onDrop = React.useCallback(
     async (acceptedFiles: File[]) => {
       if (!acceptedFiles?.length || disabled) return;
@@ -141,19 +152,13 @@ export function FileUploadField({
         const uploadedIds = await Promise.all(
           filesToUpload.map(async (file) => {
             const formData = new FormData();
-            formData.append("file", file);
             if (isPublic) {
               formData.append("isPublic", "true");
             }
+            formData.append("file", file);
 
             if (uploadMode === "auth") {
-              const uploaded = await clientFetch<{ fileId: string }>(
-                uploadEndpoint,
-                {
-                  method: "POST",
-                  body: formData,
-                },
-              );
+              const uploaded = await uploadMutation.mutateAsync(formData);
               return uploaded.fileId;
             }
 
@@ -192,6 +197,8 @@ export function FileUploadField({
       uploadEndpoint,
       uploadMode,
       value,
+      uploadMutation,
+      isPublic,
     ],
   );
 
@@ -290,10 +297,10 @@ export function FileUploadField({
       <div
         {...getRootProps()}
         className={`rounded-md border border-dashed p-3 text-sm transition-colors ${disabled
-            ? "opacity-60"
-            : isDragActive
-              ? "border-primary bg-muted"
-              : "border-muted-foreground/30"
+          ? "opacity-60"
+          : isDragActive
+            ? "border-primary bg-muted"
+            : "border-muted-foreground/30"
           }`}
       >
         <input {...getInputProps()} />

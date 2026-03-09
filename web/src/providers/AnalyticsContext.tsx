@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { clientFetch } from "@/lib/client-fetch";
+import { useApiMutation } from "@/hooks/useApiMutation";
 import { fetchCore } from "@/lib/fetch-core";
 import { tenantAnalyticsApi } from "@/lib/api/tenant-analytics";
 import { publicAnalyticsApi } from "@/lib/api/public-analytics";
@@ -87,6 +88,11 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
     [tenantScope, tenantSession?.user?.id, getSessionId],
   );
 
+  const trackMutation = useApiMutation<any, any>({
+    endpoint,
+    method: "POST",
+  });
+
   const flushQueue = useCallback(async () => {
     if (flushingRef.current || queueRef.current.length === 0) {
       return;
@@ -98,10 +104,7 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
 
     try {
       if (tenantScope) {
-        await clientFetch(endpoint, {
-          method: "POST",
-          body: batch,
-        });
+        await trackMutation.mutateAsync(batch);
       } else {
         await fetchCore(endpoint, {
           method: "POST",
@@ -123,7 +126,7 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
     } finally {
       flushingRef.current = false;
     }
-  }, [endpoint, tenantScope, baseUrl]);
+  }, [endpoint, tenantScope, baseUrl, trackMutation]);
 
   // Track Time On Page before leaving
   const trackTimeOnPage = useCallback(() => {

@@ -6,6 +6,7 @@ import { DataTable } from "@/components/dataTable/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useApiMutation } from "@/hooks/useApiMutation";
 import { platformTenantsApi } from "@/lib/api/platform-tenants";
 import { clientFetch } from "@/lib/client-fetch";
 import { Actions, Subjects, useAbility } from "@/lib/casl";
@@ -25,25 +26,28 @@ export function ManageTenantsPage() {
   const ability = useAbility();
   const canImpersonate = ability.can(Actions.UPDATE, Subjects.TENANT);
 
+  const impersonateMutation = useApiMutation<any, { userId: string; tenantId: string }>({
+    endpoint: platformTenantsApi.impersonateLogin.endpoint,
+    method: platformTenantsApi.impersonateLogin.method,
+    onSuccess: () => {
+      window.location.href = "/tenant/dashboard";
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "Failed to impersonate tenant owner";
+      toast.error(message);
+    },
+  });
+
   const handleImpersonate = async (tenant: Tenant) => {
     if (!tenant.ownerId) {
       toast.error("No active owner found for this tenant");
       return;
     }
 
-    try {
-      await clientFetch(platformTenantsApi.impersonateLogin.endpoint, {
-        method: platformTenantsApi.impersonateLogin.method,
-        body: {
-          userId: tenant.ownerId,
-          tenantId: tenant.id,
-        },
-      });
-      window.location.href = "/tenant/dashboard";
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to impersonate tenant owner";
-      toast.error(message);
-    }
+    await impersonateMutation.mutateAsync({
+      userId: tenant.ownerId,
+      tenantId: tenant.id,
+    });
   };
 
   return (
@@ -120,28 +124,28 @@ export function ManageTenantsPage() {
                     {row.original.createdAt
                       ? new Date(row.original.createdAt).toLocaleDateString()
                       : "-"}
-                    </span>
-                  ),
-                },
+                  </span>
+                ),
+              },
               ...(canImpersonate
                 ? [
-                    {
-                      id: "impersonate",
-                      header: "Login",
-                      cell: ({ row }: { row: { original: Tenant } }) => (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          title="Login as tenant owner"
-                          onClick={() => handleImpersonate(row.original)}
-                          disabled={!row.original.ownerId || row.original.status !== "active"}
-                        >
-                          <LogIn className="h-4 w-4" />
-                        </Button>
-                      ),
-                    },
-                  ]
+                  {
+                    id: "impersonate",
+                    header: "Login",
+                    cell: ({ row }: { row: { original: Tenant } }) => (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        title="Login as tenant owner"
+                        onClick={() => handleImpersonate(row.original)}
+                        disabled={!row.original.ownerId || row.original.status !== "active"}
+                      >
+                        <LogIn className="h-4 w-4" />
+                      </Button>
+                    ),
+                  },
+                ]
                 : []),
             ],
           },

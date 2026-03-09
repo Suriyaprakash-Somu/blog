@@ -3,6 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/dataTable/DataTable";
+import { useApiMutation } from "@/hooks/useApiMutation";
 import { platformAutomationApi, syncRssFeeds } from "@/lib/api/automation";
 import { RssSourceForm } from "./RssSourceForm";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -12,24 +13,24 @@ import { toast } from "sonner";
 import { useState } from "react";
 
 export function ManageRssSourcesPage() {
-    const queryClient = useQueryClient();
-    const [syncing, setSyncing] = useState(false);
-
-    const handleSync = async () => {
-        setSyncing(true);
-        const toastId = toast.loading("Starting RSS sync...");
-        try {
-            const result = await syncRssFeeds();
-            if (result.success) {
-                toast.success(result.message, { id: toastId });
+    const syncMutation = useApiMutation<{ success: boolean; message: string }, any>({
+        endpoint: platformAutomationApi.sync.endpoint,
+        method: platformAutomationApi.sync.method,
+        revalidateTags: [platformAutomationApi.getList.key],
+        onSuccess: (data) => {
+            if (data.success) {
+                toast.success(data.message);
             } else {
-                toast.error(result.message || "Failed to start sync", { id: toastId });
+                toast.error(data.message || "Failed to start sync");
             }
-        } catch (err) {
-            toast.error("Sync failed", { id: toastId });
-        } finally {
-            setSyncing(false);
-        }
+        },
+        onError: () => {
+            toast.error("Sync failed");
+        },
+    });
+
+    const handleSync = () => {
+        syncMutation.mutate({});
     };
 
     return (
@@ -38,8 +39,8 @@ export function ManageRssSourcesPage() {
                 title="RSS Sources"
                 description="Manage external RSS feeds to automatically generate blog topics and drafts."
                 actions={
-                    <Button variant="outline" onClick={handleSync} disabled={syncing}>
-                        <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+                    <Button variant="outline" onClick={handleSync} disabled={syncMutation.isPending}>
+                        <RefreshCw className={`mr-2 h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
                         Sync All Feeds
                     </Button>
                 }

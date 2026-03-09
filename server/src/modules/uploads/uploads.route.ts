@@ -327,8 +327,13 @@ async function handleUpload(
 
   for await (const part of parts) {
     if (part.type === "file") {
+      if (filePart) {
+        // We only support one file per request for now
+        // Consume the extra file stream to avoid hanging
+        await part.file.resume();
+        continue;
+      }
       filePart = part;
-      break;
     } else {
       if (part.fieldname === "isPublic" && part.value !== undefined) {
         isPublicValue = String(part.value) === "true";
@@ -484,7 +489,7 @@ export const uploadsRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const actor = actorFromRequest(request);
       const tenantId = actor.kind === "tenant" ? actor.tenantId : null;
-      return handleUpload(request, reply, { tenantId, isPublic: false });
+      return handleUpload(request, reply, { tenantId });
     }
   );
 
