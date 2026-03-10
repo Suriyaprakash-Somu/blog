@@ -26,6 +26,7 @@ import {
   type LlmProviderMeta,
   type LlmModel,
 } from "@/lib/api/platform-settings";
+import { revalidateCache } from "@/actions/cache-actions";
 import {
   Globe,
   Image as ImageIcon,
@@ -204,6 +205,7 @@ function IdentitySection({
         isPublic: true,
         description: "Platform site name and short name",
       });
+      await revalidateCache({ tags: ["public_settings"] });
       toast.success("Identity saved");
       onSaved();
     } catch {
@@ -285,6 +287,7 @@ function BrandingSection({
         isPublic: true,
         description: "Platform logo assets",
       });
+      await revalidateCache({ tags: ["public_settings"] });
       toast.success("Branding saved");
       onSaved();
     } catch {
@@ -448,6 +451,7 @@ function SocialMediaSection({
         isPublic: true,
         description: "Social media profile links",
       });
+      await revalidateCache({ tags: ["public_settings"] });
       toast.success("Social media links saved");
       onSaved();
     } catch {

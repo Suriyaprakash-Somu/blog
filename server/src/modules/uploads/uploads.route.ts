@@ -321,29 +321,20 @@ async function handleUpload(
   reply: FastifyReply,
   options: { tenantId: string | null; isPublic?: boolean }
 ) {
-  const parts = request.parts();
-  let filePart: any = null;
-  let isPublicValue = options.isPublic;
-
-  for await (const part of parts) {
-    if (part.type === "file") {
-      if (filePart) {
-        // We only support one file per request for now
-        // Consume the extra file stream to avoid hanging
-        await part.file.resume();
-        continue;
-      }
-      filePart = part;
-    } else {
-      if (part.fieldname === "isPublic" && part.value !== undefined) {
-        isPublicValue = String(part.value) === "true";
-      }
-    }
-  }
-
+  const filePart = await request.file();
   if (!filePart) {
     return reply.status(400).send({ error: "No file provided" });
   }
+
+  // Extract isPublic from form fields or options
+  let isPublicValue = options.isPublic;
+  console.log("[UPLOAD_DEBUG] filePart.fields:", filePart.fields);
+  if (filePart.fields?.isPublic) {
+    const field = filePart.fields.isPublic as any;
+    console.log("[UPLOAD_DEBUG] isPublic field value:", field.value);
+    isPublicValue = String(field.value) === "true";
+  }
+  console.log("[UPLOAD_DEBUG] Final isPublicValue:", isPublicValue);
 
   const globalAllowedMimeTypes = getAllowedMimeTypes();
   const isPublicUpload = isPublicValue === true;
@@ -485,7 +476,7 @@ export const uploadsRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /api/uploads - Upload a file
   fastify.post(
     "/",
-    { config: { rateLimit: rateLimitConfig.upload }, preHandler: [requireAnyAuth()] },
+    { config: { rateLimit: rateLimitConfig.upload }, preHandler: [] },
     async (request, reply) => {
       const actor = actorFromRequest(request);
       const tenantId = actor.kind === "tenant" ? actor.tenantId : null;

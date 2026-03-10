@@ -57,7 +57,7 @@ export async function getPublicSiteSettings(): Promise<SiteSettings> {
     try {
         const result = await serverFetch<{ rows: SettingRow[] }>(
             "/api/public/settings",
-            { next: { revalidate: 300 } } as any, // 5 min cache
+            { next: { revalidate: 300, tags: ["public_settings"] } } as any, // 5 min cache
         );
 
         const rows = result?.rows ?? [];

@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { updatePlatformSetting } from "@/lib/api/platform-settings";
 import { FileUploadField } from "@/components/form/FileUploadField";
+import { revalidateCache } from "@/actions/cache-actions";
 
 export function SettingsForm({
   settingKey,
@@ -46,6 +47,7 @@ export function SettingsForm({
         isPublic,
         description,
       });
+      await revalidateCache({ tags: ["public_settings"] });
       toast.success(`${title} saved successfully`);
     } catch (e) {
       toast.error(`Failed to save ${title}`);
