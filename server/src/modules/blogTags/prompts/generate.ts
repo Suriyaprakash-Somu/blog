@@ -26,7 +26,7 @@ export type BlogTagGenerated = z.infer<typeof blogTagGeneratedSchema>;
 /*  Prompt builder                                                    */
 /* ------------------------------------------------------------------ */
 
-const SYSTEM_PROMPT = `You are an expert SEO content strategist for an Indian blog platform targeting readers in India.
+export const DEFAULT_BLOG_TAG_SYSTEM_PROMPT = `You are an expert SEO content strategist for an Indian blog platform targeting readers in India.
 Given a blog tag name, generate high-quality metadata optimized for Indian audiences and search trends.
 
 A tag is more specific and granular than a category — it represents a focused topic or keyword that readers might search for.
@@ -47,9 +47,9 @@ Respond ONLY with valid JSON matching this exact schema:
   "metaKeywords": "string"
 }`;
 
-export function buildBlogTagPrompt(tagName: string): ChatMessage[] {
+export function buildBlogTagPrompt(tagName: string, customSystemPrompt?: string | null): ChatMessage[] {
   return [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: customSystemPrompt ? customSystemPrompt : DEFAULT_BLOG_TAG_SYSTEM_PROMPT },
     {
       role: "user",
       content: `Generate blog tag metadata for: "${tagName}"`,

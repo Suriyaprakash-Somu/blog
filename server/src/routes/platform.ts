@@ -92,4 +92,18 @@ export async function registerPlatformRoutes(app: FastifyInstance) {
     basePrefix: ROUTE_PREFIXES.platform,
     label: "platform.automation",
   });
+
+  const { promptsRoutes } = await import("../modules/prompts/platform/index.js");
+  await registerWithPrefix(app, promptsRoutes, {
+    prefix: PLATFORM_ROUTES.prompts,
+    basePrefix: ROUTE_PREFIXES.platform,
+    label: "platform.prompts",
+  });
+
+  const { platformSystemRoutes } = await import("../modules/system/platform/index.js");
+  await registerWithPrefix(app, platformSystemRoutes, {
+    prefix: PLATFORM_ROUTES.system,
+    basePrefix: ROUTE_PREFIXES.platform,
+    label: "platform.system",
+  });
 }

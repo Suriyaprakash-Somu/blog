@@ -110,6 +110,12 @@ export const MODULE_BINDINGS: Record<string, ModuleBinding> = {
     routeBase: "/tenant/blog-posts",
     subject: "BlogPost" as AppSubject,
   },
+  "platform.prompts": {
+    moduleKey: "platform.prompts",
+    scope: "platform",
+    routeBase: "/platform/prompts",
+    subject: Subjects.PLATFORM_SETTINGS,
+  },
 };
 
 export function getModuleBinding(moduleKey: string): ModuleBinding | undefined {

@@ -1,5 +1,8 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { z } from "zod";
+import { db } from "../../../db/index.js";
+import { platformSettings } from "../../../db/schema/settings.js";
+import { prompts as promptsTable } from "../../prompts/prompts.schema.js";
 import type { FastifyPluginAsync } from "fastify";
 import { CRUD_ACCESS } from "../../../access/crudAccess.js";
 import { createCrudRoutes, type HookContext } from "../../../core/crudFactory.js";
@@ -425,7 +428,21 @@ const blogPostsGenerateRoute: FastifyPluginAsync = async (fastify) => {
       try {
         console.log(`[GENERATION] Starting AI blog post generation for title: "${title}"`);
         request.log.info({ title }, "Starting AI blog post generation");
-        const messages = buildBlogPostPrompt(title);
+        
+        const [promptSetting] = await db
+          .select()
+          .from(promptsTable)
+          .where(
+            and(
+              eq(promptsTable.module, "prompt_blog_post"),
+              eq(promptsTable.isActive, true),
+              isNull(promptsTable.deletedAt)
+            )
+          )
+          .limit(1);
+        const customPrompt = promptSetting?.content ? promptSetting.content : null;
+
+        const messages = buildBlogPostPrompt(title, customPrompt);
 
         console.log(`[GENERATION] Sending request to LLM (chatCompletion)...`);
         request.log.info("Sending request to LLM...");

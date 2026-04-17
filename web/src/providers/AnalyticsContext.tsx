@@ -128,27 +128,38 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [endpoint, tenantScope, baseUrl, trackMutation]);
 
+  // Use refs for stable function identities in effects
+  const enqueueRef = useRef(enqueue);
+  const flushQueueRef = useRef(flushQueue);
+  const pathnameRef = useRef(pathname);
+
+  useEffect(() => {
+    enqueueRef.current = enqueue;
+    flushQueueRef.current = flushQueue;
+    pathnameRef.current = pathname;
+  }, [enqueue, flushQueue, pathname]);
+
   // Track Time On Page before leaving
   const trackTimeOnPage = useCallback(() => {
-    if (!pathname) return;
+    if (!pathnameRef.current) return;
     const durationMs = Date.now() - pageEnterTime.current;
     if (durationMs > 1000) { // Only track if they stayed at least 1 second
-      enqueue("TIME_ON_PAGE", {
-        path: pathname,
+      enqueueRef.current("TIME_ON_PAGE", {
+        path: pathnameRef.current,
         durationSeconds: Math.round(durationMs / 1000),
       });
     }
-  }, [pathname, enqueue]);
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      void flushQueue();
+      void flushQueueRef.current();
     }, BATCH_INTERVAL_MS);
 
     const onVisibility = () => {
       if (document.visibilityState === "hidden") {
         trackTimeOnPage();
-        void flushQueue();
+        void flushQueueRef.current();
       } else {
         // Reset enter time when coming back
         pageEnterTime.current = Date.now();
@@ -157,7 +168,7 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
 
     const onBeforeUnload = () => {
       trackTimeOnPage();
-      void flushQueue();
+      void flushQueueRef.current();
     };
 
     document.addEventListener("visibilitychange", onVisibility);
@@ -167,9 +178,10 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("beforeunload", onBeforeUnload);
-      void flushQueue();
+      // Removed immediate flushQueue call from general cleanup to prevent loops 
+      // during re-renders. beforeunload handles actual tab closing.
     };
-  }, [flushQueue, trackTimeOnPage]);
+  }, [trackTimeOnPage]); // interval no longer needs to reset when flushQueue changes identity
 
   // Global click tracker for outbound links and data-analytics elements
   useEffect(() => {

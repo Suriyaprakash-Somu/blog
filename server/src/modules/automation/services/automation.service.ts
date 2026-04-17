@@ -1,7 +1,9 @@
 import { db } from "../../../db/index.js";
 import { rssSources, feedItems } from "../automation.schema.js";
 import { blogPosts } from "../../blogPosts/blogPosts.schema.js";
-import { eq, desc, inArray } from "drizzle-orm";
+import { platformSettings } from "../../../db/schema/settings.js";
+import { prompts as promptsTable } from "../../prompts/prompts.schema.js";
+import { eq, desc, inArray, and, isNull } from "drizzle-orm";
 import { fetchRssFeed } from "./rssFetcher.js";
 import { chatCompletion } from "../../settings/llm/completion.js";
 import { buildBlogPostPrompt } from "../../blogPosts/prompts/generate.js";
@@ -109,20 +111,36 @@ export class AutomationService {
 
         const recentSection = recentTitles ? "- " + recentTitles : "(none)";
 
-        const TOPIC_SELECTION_PROMPT = [
+        const [rssPromptSetting] = await db
+          .select()
+          .from(promptsTable)
+          .where(
+            and(
+              eq(promptsTable.module, "prompt_rss_topic"),
+              eq(promptsTable.isActive, true),
+              isNull(promptsTable.deletedAt)
+            )
+          )
+          .limit(1);
+        
+        let TOPIC_SELECTION_PROMPT = rssPromptSetting?.content ? rssPromptSetting.content : [
             "You are a content strategist. Pick the best topic from the feed items below for an India-focused blog post.",
             "",
             "RECENT POSTS (avoid duplicating):",
-            recentSection,
+            "{RECENT_POSTS}",
             "",
             "FEED ITEMS:",
-            feedContext,
+            "{FEED_ITEMS}",
             "",
             "Pick the most compelling topic. Prefer India-relevant topics but any significant global topic with Indian impact is fine.",
             "",
             "Respond with ONLY this JSON:",
             '{"selectedTitle": "Your chosen title", "reasoning": "Why you chose it", "sourceIndices": [0, 1]}'
         ].join("\n");
+        
+        TOPIC_SELECTION_PROMPT = TOPIC_SELECTION_PROMPT
+            .replace("{RECENT_POSTS}", recentSection)
+            .replace("{FEED_ITEMS}", feedContext);
 
         console.log("[RSS AUTO] Sending topic selection prompt to LLM...");
 
@@ -198,7 +216,18 @@ export class AutomationService {
             .filter(Boolean);
 
         // 4. LLM Prompt 2: Content Generation
-        const baseMessages = buildBlogPostPrompt(selectedTitle);
+        const [blogPromptSetting] = await db
+          .select()
+          .from(promptsTable)
+          .where(
+            and(
+              eq(promptsTable.module, "prompt_blog_post"),
+              eq(promptsTable.isActive, true),
+              isNull(promptsTable.deletedAt)
+            )
+          )
+          .limit(1);
+        const baseMessages = buildBlogPostPrompt(selectedTitle, blogPromptSetting?.content ? blogPromptSetting.content : null);
         const sourceMaterial = sourceIndices
             .map((idx: number) => "SOURCE: " + items[idx]?.title + "\nDETAILS: " + items[idx]?.description)
             .join("\n\n");

@@ -26,7 +26,7 @@ export type BlogCategoryGenerated = z.infer<typeof blogCategoryGeneratedSchema>;
 /*  Prompt builder                                                    */
 /* ------------------------------------------------------------------ */
 
-const SYSTEM_PROMPT = `You are an expert SEO content strategist for an Indian blog platform targeting readers in India.
+export const DEFAULT_BLOG_CATEGORY_SYSTEM_PROMPT = `You are an expert SEO content strategist for an Indian blog platform targeting readers in India.
 Given a blog category name, generate high-quality metadata optimized for Indian audiences and search trends.
 
 Rules:
@@ -45,9 +45,9 @@ Respond ONLY with valid JSON matching this exact schema:
   "metaKeywords": "string"
 }`;
 
-export function buildBlogCategoryPrompt(categoryName: string): ChatMessage[] {
+export function buildBlogCategoryPrompt(categoryName: string, customSystemPrompt?: string | null): ChatMessage[] {
   return [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: customSystemPrompt ? customSystemPrompt : DEFAULT_BLOG_CATEGORY_SYSTEM_PROMPT },
     {
       role: "user",
       content: `Generate blog category metadata for: "${categoryName}"`,

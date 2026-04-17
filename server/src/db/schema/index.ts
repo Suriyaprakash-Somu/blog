@@ -54,3 +54,6 @@ export * from "../../modules/newsletter/newsletter.schema.js";
 
 // Automation
 export * from "../../modules/automation/automation.schema.js";
+
+// Prompts
+export * from "../../modules/prompts/prompts.schema.js";

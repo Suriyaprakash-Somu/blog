@@ -290,6 +290,20 @@ export const MODULE_POLICIES: ModulePolicy[] = [
     },
   },
   {
+    moduleKey: "platform.prompts",
+    scope: "platform",
+    subject: SUBJECTS.PLATFORM_SETTINGS,
+    routeBase: "/platform/prompts",
+    navigation: {
+      title: "Prompts",
+      path: "/platform/prompts",
+      iconKey: "file-text",
+      section: "System",
+      order: 3,
+      visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.PLATFORM_SETTINGS },
+    },
+  },
+  {
     moduleKey: "platform.auditLogs",
     scope: "platform",
     subject: SUBJECTS.AUDIT_LOG,

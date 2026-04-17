@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";  
 import { FileUploadField } from "@/components/form/FileUploadField";
 import { toast } from "sonner";
 import {
@@ -26,6 +27,7 @@ import {
   type LlmProviderMeta,
   type LlmModel,
 } from "@/lib/api/platform-settings";
+import { downloadBackup, restoreDatabase } from "@/lib/api/system";
 import { revalidateCache } from "@/actions/cache-actions";
 import {
   Globe,
@@ -42,6 +44,11 @@ import {
   CircleDot,
   Circle,
   RefreshCw,
+  FileText,
+  Database,
+  Download,
+  AlertTriangle,
+  Upload,
 } from "lucide-react";
 import {
   Select,
@@ -142,6 +149,9 @@ export default function PlatformSettingsPage() {
             <TabsTrigger value="integrations">
               <Key className="mr-1.5 h-4 w-4" /> Integrations
             </TabsTrigger>
+            <TabsTrigger value="maintenance">
+              <Database className="mr-1.5 h-4 w-4" /> Maintenance
+            </TabsTrigger>
           </TabsList>
 
           {/* ── Branding & Identity ───────────────────────────────────────── */}
@@ -176,6 +186,11 @@ export default function PlatformSettingsPage() {
               })}
               onSaved={load}
             />
+          </TabsContent>
+
+          {/* ── Maintenance ───────────────────────────────────── */}
+          <TabsContent value="maintenance">
+            <MaintenanceSection />
           </TabsContent>
         </Tabs>
       </div>
@@ -792,3 +807,146 @@ function IntegrationsSection({
     </div>
   );
 }
+
+/* ================================================================== */
+/*  ── Maintenance Section                                            */
+/* ================================================================== */
+
+function MaintenanceSection() {
+  const [backingUp, setBackingUp] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+
+  const handleBackup = async () => {
+    setBackingUp(true);
+    try {
+      await downloadBackup();
+      toast.success("Backup generated and download started");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Backup failed");
+    } finally {
+      setBackingUp(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!restoreFile) {
+      toast.error("Please select a .dump file to restore");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "CRITICAL WARNING: This will overwrite your entire database with the contents of the backup file. This action CANNOT be undone. Are you absolutely sure you want to proceed?"
+    );
+
+    if (!confirmed) return;
+
+    setRestoring(true);
+    try {
+      const result = await restoreDatabase(restoreFile);
+      if (result.ok) {
+        toast.success("Database restored successfully. The page will reload.");
+        setTimeout(() => window.location.reload(), 2000);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Restore failed");
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  return (
+    <div className="grid gap-6 max-w-3xl pt-4">
+      {/* ── Backup ───────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Download className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Full Database Backup</CardTitle>
+              <CardDescription>
+                Download a complete custom-format backup (.dump) of your database.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            This operation includes all tenants, users, settings, and content. The file generated can be used for migration or disaster recovery.
+          </p>
+          <Button 
+            onClick={handleBackup} 
+            disabled={backingUp}
+            className="w-full sm:w-auto"
+          >
+            {backingUp ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Generate & Download Backup
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* ── Restore ───────────────────────────────────── */}
+      <Card className="border-destructive/20 bg-destructive/2">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10">
+              <Upload className="h-5 w-5 text-destructive" />
+            </div>
+            <div>
+              <CardTitle className="text-lg text-destructive">Restore Database</CardTitle>
+              <CardDescription>
+                Upload a .dump file to restore the database to a previous state.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4">
+            <div className="flex gap-3">
+              <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-destructive">Danger Zone</p>
+                <p className="text-xs text-destructive/80 leading-relaxed">
+                  Restoring will permanently delete all current data and replace it with the content from the backup file. 
+                  Ensure you have a recent backup before proceeding.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            <Label htmlFor="restore-file">Select Backup File (.dump)</Label>
+            <Input 
+              id="restore-file"
+              type="file" 
+              accept=".dump"
+              onChange={(e) => setRestoreFile(e.target.files?.[0] || null)}
+              className="cursor-pointer"
+            />
+          </div>
+
+          <Button 
+            variant="destructive"
+            onClick={handleRestore}
+            disabled={!restoreFile || restoring}
+            className="w-full sm:w-auto"
+          >
+            {restoring ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            Execute Restoration
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+

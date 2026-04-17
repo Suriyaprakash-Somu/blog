@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import type { FastifyPluginAsync } from "fastify";
 import { CRUD_ACCESS } from "../../../access/crudAccess.js";
@@ -6,6 +6,8 @@ import { createCrudRoutes, type HookContext } from "../../../core/crudFactory.js
 import { rateLimitConfig } from "../../../core/rateLimit.js";
 import { createZodSchemas } from "../../../utils/schemaFactory.js";
 import { db } from "../../../db/index.js";
+import { prompts as promptsTable } from "../../prompts/prompts.schema.js";
+import { platformSettings } from "../../../db/schema/settings.js";
 import { uploadedFiles } from "../../uploads/uploadedFiles.schema.js";
 import { blogTags } from "../blogTags.schema.js";
 import { chatCompletionJSON } from "../../settings/llm/completion.js";
@@ -197,7 +199,20 @@ const blogTagsGenerateRoute: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { name } = generateBodySchema.parse(request.body);
       try {
-        const messages = buildBlogTagPrompt(name);
+        const [promptSetting] = await db
+          .select()
+          .from(promptsTable)
+          .where(
+            and(
+              eq(promptsTable.module, "prompt_blog_tag"),
+              eq(promptsTable.isActive, true),
+              isNull(promptsTable.deletedAt)
+            )
+          )
+          .limit(1);
+        const customPrompt = promptSetting?.content ? promptSetting.content : null;
+
+        const messages = buildBlogTagPrompt(name, customPrompt);
         const result = await chatCompletionJSON<BlogTagGenerated>({
           messages,
           temperature: 0.7,

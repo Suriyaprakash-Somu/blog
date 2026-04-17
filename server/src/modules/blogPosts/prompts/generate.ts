@@ -33,7 +33,7 @@ export type BlogPostGenerated = z.infer<typeof blogPostGeneratedSchema>;
 /*  Prompt builder                                                    */
 /* ------------------------------------------------------------------ */
 
-const SYSTEM_PROMPT = `You are an expert content creator, investigative journalist, and SEO specialist with a commitment to factual accuracy.
+export const DEFAULT_BLOG_POST_SYSTEM_PROMPT = `You are an expert content creator, investigative journalist, and SEO specialist with a commitment to factual accuracy.
 
 ## GROUNDING_INSTRUCTIONS (CRITICAL)
 - **STEP 1: SYNTHESIZE**. Use *only* verified facts to write the content.
@@ -148,9 +148,9 @@ You must output ONLY valid JSON matching this schema:
 }
 `;
 
-export function buildBlogPostPrompt(postTitle: string): ChatMessage[] {
+export function buildBlogPostPrompt(postTitle: string, customSystemPrompt?: string | null): ChatMessage[] {
   return [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: customSystemPrompt ? customSystemPrompt : DEFAULT_BLOG_POST_SYSTEM_PROMPT },
     {
       role: "user",
       content: `Please generate the blog post payload for the topic: "${postTitle}". Output ONLY valid JSON according to the schema. Follow all vagueness prohibitions, maximum 4000-word limit formatting, and sourcing rules strictly.`,

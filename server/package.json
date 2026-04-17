@@ -20,7 +20,8 @@
     "db:studio": "npx tsx node_modules/drizzle-kit/bin.cjs studio",
     "db:reset": "tsx src/scripts/db-reset.ts",
     "db:reset+migrate": "npm run db:reset && npm run db:migrate",
-    "db:seed:landing": "tsx src/scripts/seed-landing.ts",
+    "db:seed:landing": "tsx --env-file=.env src/scripts/seed-landing.ts",
+    "db:seed:prompts": "tsx --env-file=.env src/scripts/seed-prompts.ts",
     "uploads:cleanup": "tsx src/scripts/uploads-cleanup.ts"
   },
   "dependencies": {

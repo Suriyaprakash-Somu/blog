@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import {
   and,
   asc,
@@ -372,73 +373,92 @@ export function createCrudRoutes<TConfig extends TableConfig>(
           config: rateLimit?.list ? { rateLimit: rateLimit.list } : undefined,
         },
         async (request, reply) => {
-        const req = request as AuthenticatedRequest;
-        const tenantId = resolveTenantId(req);
-        const query = req.query as ListQuery;
+          const req = request as AuthenticatedRequest;
+          const tenantId = resolveTenantId(req);
+          const query = req.query as ListQuery;
 
-        // Pagination
-        const page = Math.max(1, parseInt(query.page || "1", 10));
-        const pageSize = Math.min(
-          100,
-          Math.max(1, parseInt(query.pageSize || "10", 10))
-        );
-        const offset = (page - 1) * pageSize;
+          const cache = getCache();
+          // Generate stable hash for the query to use as part of cache key
+          const queryHash = crypto
+            .createHash("md5")
+            .update(JSON.stringify(query))
+            .digest("hex");
+          const cacheKey = buildKey(
+            cacheConfig.keyPrefix,
+            tenantId,
+            "list",
+            queryHash
+          );
 
-        // Filtering
-        const filterCondition = buildFilters(query.filters || null, {
-          columnMap,
-          searchableColumns,
-        });
+          return await cache.getOrSet(
+            cacheKey,
+            async () => {
+              // Pagination
+              const page = Math.max(1, parseInt(query.page || "1", 10));
+              const pageSize = Math.min(
+                100,
+                Math.max(1, parseInt(query.pageSize || "10", 10))
+              );
+              const offset = (page - 1) * pageSize;
 
-        // Tenant isolation
-        const tenantFilter = accessConfig.tenantScope
-          ? eq(columns.tenantId, tenantId)
-          : undefined;
-        const whereClause = filterCondition
-          ? tenantFilter
-            ? and(tenantFilter, filterCondition)
-            : filterCondition
-          : tenantFilter;
+              // Filtering
+              const filterCondition = buildFilters(query.filters || null, {
+                columnMap,
+                searchableColumns,
+              });
 
-        // Sorting
-        const sorting = parseSorting(query.sorting || null);
-        const orderByParts: SQL[] = [];
+              // Tenant isolation
+              const tenantFilter = accessConfig.tenantScope
+                ? eq(columns.tenantId, tenantId)
+                : undefined;
+              const whereClause = filterCondition
+                ? tenantFilter
+                  ? and(tenantFilter, filterCondition)
+                  : filterCondition
+                : tenantFilter;
 
-        if (sorting && sorting.length > 0) {
-          for (const s of sorting) {
-            const column = columnMap[s.id];
-            if (!column) continue;
-            orderByParts.push(s.desc ? desc(column) : asc(column));
-          }
-        }
+              // Sorting
+              const sorting = parseSorting(query.sorting || null);
+              const orderByParts: SQL[] = [];
 
-        if (orderByParts.length === 0) {
-          orderByParts.push(desc(columns.createdAt || columns.id));
-        }
+              if (sorting && sorting.length > 0) {
+                for (const s of sorting) {
+                  const column = columnMap[s.id];
+                  if (!column) continue;
+                  orderByParts.push(s.desc ? desc(column) : asc(column));
+                }
+              }
 
-        // Count
-        const [countResult] = await db
-          .select({ count: count() })
-          .from(tableForDb)
-          .where(whereClause);
-        const rowCount = countResult?.count || 0;
+              if (orderByParts.length === 0) {
+                orderByParts.push(desc(columns.createdAt || columns.id));
+              }
 
-        // Rows
-        const rows = await db
-          .select()
-          .from(tableForDb)
-          .where(whereClause)
-          .orderBy(...orderByParts)
-          .limit(pageSize)
-          .offset(offset);
+              // Count
+              const [countResult] = await db
+                .select({ count: count() })
+                .from(tableForDb)
+                .where(whereClause);
+              const rowCount = countResult?.count || 0;
 
-        return reply.send({
-          rows,
-          rowCount: Number(rowCount),
-          page,
-          pageSize,
-          pageCount: Math.ceil(Number(rowCount) / pageSize),
-        });
+              // Rows
+              const rows = await db
+                .select()
+                .from(tableForDb)
+                .where(whereClause)
+                .orderBy(...orderByParts)
+                .limit(pageSize)
+                .offset(offset);
+
+              return {
+                rows,
+                rowCount: Number(rowCount),
+                page,
+                pageSize,
+                pageCount: Math.ceil(Number(rowCount) / pageSize),
+              };
+            },
+            tenantTags(cacheConfig.tag, tenantId)
+          );
         }
       );
     }

@@ -43,6 +43,13 @@
       "when": 1772556109203,
       "tag": "0005_polite_clint_barton",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776426151723,
+      "tag": "0006_lonely_cable",
+      "breakpoints": true
     }
   ]
 }
