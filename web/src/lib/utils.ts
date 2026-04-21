@@ -51,6 +51,22 @@ export function exhaustiveCheck(value: never): never {
 }
 
 /**
+ * Build OG image URL chain with fallback
+ */
+export function buildOgImageUrl(
+  entityImageUrl: string | null | undefined,
+  fallbackImageUrl: string | null | undefined
+): string | undefined {
+  if (entityImageUrl && (entityImageUrl.startsWith("http://") || entityImageUrl.startsWith("https://"))) {
+    return entityImageUrl;
+  }
+  if (fallbackImageUrl && (fallbackImageUrl.startsWith("http://") || fallbackImageUrl.startsWith("https://"))) {
+    return fallbackImageUrl;
+  }
+  return undefined;
+}
+
+/**
  * Format storage key to public image URL
  */
 export function getPublicImageUrl(storageKey: string | null): string | null {

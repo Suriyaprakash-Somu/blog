@@ -100,6 +100,13 @@ export async function registerPlatformRoutes(app: FastifyInstance) {
     label: "platform.prompts",
   });
 
+  const { llmCacheRoutes } = await import("../modules/llmCache/platform/llmCache.route.js");
+  await registerWithPrefix(app, llmCacheRoutes, {
+    prefix: PLATFORM_ROUTES.llmCache,
+    basePrefix: ROUTE_PREFIXES.platform,
+    label: "platform.llmCache",
+  });
+
   const { platformSystemRoutes } = await import("../modules/system/platform/index.js");
   await registerWithPrefix(app, platformSystemRoutes, {
     prefix: PLATFORM_ROUTES.system,

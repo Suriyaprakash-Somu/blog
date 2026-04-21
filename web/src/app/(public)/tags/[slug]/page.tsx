@@ -6,6 +6,15 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { absoluteUrl, breadcrumbList } from "@/lib/seo/jsonld";
 import { getPublicImageUrl } from "@/lib/utils";
 import { PublicBreadcrumbs } from "@/components/layout/PublicBreadcrumbs";
+import ReactMarkdown from "react-markdown";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { getPublicSiteSettings } from "@/lib/api/public-settings";
+import { buildOgImageUrl } from "@/lib/utils";
 
 export const revalidate = 10800; // 3 hours
 
@@ -19,6 +28,8 @@ type PublicTag = {
   metaTitle?: string | null;
   metaDescription?: string | null;
   metaKeywords?: string | null;
+  content?: string | null;
+  faq?: Array<{ question: string; answer: string }> | null;
 };
 
 type PublicPostListing = {
@@ -65,6 +76,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const tag = await getTag(slug);
+  const settings = await getPublicSiteSettings();
 
   if (!tag) {
     return {
@@ -77,6 +89,7 @@ export async function generateMetadata({
   const description =
     tag.metaDescription?.trim() || tag.description?.trim() || undefined;
   const keywords = toKeywords(tag.metaKeywords);
+  const ogImage = buildOgImageUrl(tag.imageUrl, settings.logos.lightLogoUrl);
 
   return {
     title,
@@ -88,11 +101,13 @@ export async function generateMetadata({
       title,
       description,
       url: `/tags/${tag.slug}`,
+      images: ogImage ? [{ url: ogImage }] : undefined,
     },
     twitter: {
-      card: "summary",
+      card: ogImage ? "summary_large_image" : "summary",
       title,
       description,
+      images: ogImage ? [ogImage] : undefined,
     },
   };
 }
@@ -123,9 +138,26 @@ export default async function TagPage({
     { name: tag.name, url: absoluteUrl(`/tags/${tag.slug}`) },
   ]);
 
+  const hasFaq = tag.faq && tag.faq.length > 0;
+  const faqSchema = hasFaq
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: tag.faq!.map((item) => ({
+          "@type": "Question",
+          name: item.question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: item.answer,
+          },
+        })),
+      }
+    : null;
+
   return (
     <div className="container mx-auto px-4 py-16 max-w-6xl">
       <JsonLd data={breadcrumbs} />
+      {hasFaq && <JsonLd data={faqSchema} />}
 
       <PublicBreadcrumbs
         customCrumbs={[
@@ -195,6 +227,32 @@ export default async function TagPage({
               </div>
             </Link>
           ))}
+        </div>
+      )}
+
+      {tag.content && (
+        <div className="prose prose-lg dark:prose-invert max-w-none mt-20 mb-16 bg-card/50 rounded-3xl p-8 md:p-12 border border-border shadow-sm">
+          <ReactMarkdown>{tag.content}</ReactMarkdown>
+        </div>
+      )}
+
+      {hasFaq && (
+        <div className="mt-20 mb-16 max-w-4xl mx-auto bg-card rounded-3xl p-8 md:p-12 border shadow-sm">
+          <h2 className="text-3xl font-extrabold mb-8 text-center text-foreground">
+            Frequently Asked Questions
+          </h2>
+          <Accordion className="w-full">
+            {tag.faq!.map((item, index) => (
+              <AccordionItem key={index} value={`item-${index}`} className="border-b-border/30">
+                <AccordionTrigger className="text-lg font-medium text-left hover:text-primary hover:no-underline py-5">
+                  {item.question}
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground text-base leading-relaxed pb-5">
+                  {item.answer}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         </div>
       )}
     </div>

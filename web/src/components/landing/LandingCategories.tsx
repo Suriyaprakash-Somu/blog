@@ -45,7 +45,7 @@ export function LandingCategories({ categories }: { categories: LandingCategory[
   if (!categories || categories.length === 0) return null;
 
   return (
-    <section className="relative overflow-hidden bg-background py-20 lg:py-32 border-t">
+    <section className="relative overflow-hidden bg-background py-12 lg:py-16 border-t" aria-label="Core Research Pillars and Categories">
       <div className="container px-4 md:px-6 z-10 relative mx-auto max-w-7xl">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
           <motion.div
@@ -92,27 +92,27 @@ export function LandingCategories({ categories }: { categories: LandingCategory[
               <motion.div key={category.id} variants={itemVariants}>
                 <Link
                   href={`/categories/${category.slug}`}
-                  className="block h-full outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl"
+                  className="block h-full outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-[2rem]"
                 >
-                  <Card className="h-full bg-card hover:bg-muted/50 transition-colors border shadow-sm hover:shadow-md group relative overflow-hidden">
-                    <CardContent className="p-6">
+                  <Card className="h-full bg-background/50 backdrop-blur-xl hover:bg-background/80 transition-all border-white/5 shadow-sm hover:shadow-2xl hover:border-primary/50 group relative overflow-hidden rounded-[2rem] p-4">
+                    <CardContent className="p-4">
                       <div
-                        className={`mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl ${color} transition-transform group-hover:scale-110`}
+                        className={`mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl ${color} transition-all group-hover:scale-110 group-hover:rotate-3`}
                       >
                         {category.icon ? (
-                          <DynamicIcon name={category.icon} className="h-6 w-6" />
+                          <DynamicIcon name={category.icon} className="h-7 w-7" />
                         ) : (
-                          <LayoutGrid className="h-6 w-6" /> // fallback
+                          <LayoutGrid className="h-7 w-7" /> // fallback
                         )}
                       </div>
-                      <h3 className="mb-2 font-bold text-xl tracking-tight group-hover:text-primary transition-colors">
+                      <h3 className="mb-3 font-black text-2xl tracking-tight group-hover:text-primary transition-colors">
                         {category.name}
                       </h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
+                      <p className="text-muted-foreground leading-relaxed line-clamp-3 font-medium">
                         {category.description || "Explore articles in this category."}
                       </p>
                     </CardContent>
-                    <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-primary/50 to-transparent transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
+                    <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-primary to-transparent transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
                   </Card>
                 </Link>
               </motion.div>

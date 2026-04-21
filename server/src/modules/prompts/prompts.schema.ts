@@ -19,9 +19,17 @@ export const prompts = pgTable("prompts", {
     .primaryKey()
     .$defaultFn(() => uuidv7()),
 
-  module: varchar("module", { length: 50 }).notNull(), // 'blogPosts', 'blogCategories', 'blogTags', 'rssTopic'
+  module: varchar("module", { length: 50 }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
-  content: text("content").notNull(),
+  systemPrompt: text("system_prompt").notNull(),
+  userPromptTemplate: text("user_prompt_template").notNull(),
+  
+  // Template fields
+  isTemplate: boolean("is_template").default(false),
+  isDefault: boolean("is_default").default(false),
+  templateName: varchar("template_name", { length: 255 }),
+  defaultInstructions: text("default_instructions"),
+  
   isActive: boolean("is_active").default(false).notNull(),
   version: integer("version").default(1).notNull(),
 

@@ -40,6 +40,8 @@ export const publicBlogCategoriesRoutes: FastifyPluginAsync = async (app: Fastif
                 metaKeywords: blogCategories.metaKeywords,
                 status: blogCategories.status,
                 imageUrl: uploadedFiles.storageKey,
+                content: blogCategories.content,
+                faq: blogCategories.faq,
             })
             .from(blogCategories)
             .leftJoin(uploadedFiles, eq(blogCategories.imageFileId, uploadedFiles.id))

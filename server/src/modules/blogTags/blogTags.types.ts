@@ -12,6 +12,8 @@ export interface CreateBlogTagBody {
   metaTitle?: string;
   metaDescription?: string;
   metaKeywords?: string;
+  content?: string;
+  faq?: Array<{ question: string; answer: string }>;
   status?: BlogTagStatus;
 }
 

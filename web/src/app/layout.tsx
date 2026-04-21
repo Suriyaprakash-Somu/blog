@@ -31,10 +31,12 @@ export async function generateMetadata(): Promise<Metadata> {
     description: `The latest stories and analysis from ${siteName}.`,
     openGraph: {
       siteName,
+      images: settings.logos.lightLogoUrl ? [{ url: settings.logos.lightLogoUrl }] : undefined,
     },
     alternates: {
       types: {
         "application/rss+xml": "/rss.xml",
+        "text/plain": "/llms.txt",
       },
     },
     ...(settings.logos.faviconUrl && {

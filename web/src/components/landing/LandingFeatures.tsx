@@ -7,46 +7,66 @@ import {
   GraduationCap,
   LineChart,
   Search,
+  Zap,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 const features = [
   {
     title: "Comprehensive Coverage",
     description:
-      "Thousands of articles spanning India's rich history, diverse geography, emerging economy, and profound culture.",
+      "Thousands of articles spanning India's rich history, diverse geography, and emerging economy.",
     icon: BookOpen,
+    className: "lg:col-span-2",
+    iconBg: "bg-blue-500/10",
+    iconColor: "text-blue-500",
   },
   {
     title: "Reputable Sources",
     description:
-      "Every data point and historical fact is gathered strictly from verified, globally and nationally reputed sources.",
+      "Verified, globally and nationally reputed sources.",
     icon: Database,
+    className: "lg:col-span-1",
+    iconBg: "bg-emerald-500/10",
+    iconColor: "text-emerald-500",
   },
   {
-    title: "For Students & Researchers",
+    title: "Tailored for Researchers",
     description:
-      "Carefully tailored deep-dives featuring academic-friendly formatting, citations, and structured chronologies.",
+      "Deep-dives featuring academic-friendly formatting, citations, and structured chronologies.",
     icon: GraduationCap,
+    className: "lg:col-span-1 lg:row-span-2",
+    iconBg: "bg-purple-500/10",
+    iconColor: "text-purple-500",
+    isTall: true,
   },
   {
     title: "Data-Driven Insights",
     description:
-      "Interactive infographics, geospatial charts, and hard facts driving the narratives behind public policy.",
+      "Interactive infographics and hard facts driving the narratives behind public policy.",
     icon: LineChart,
+    className: "lg:col-span-1",
+    iconBg: "bg-amber-500/10",
+    iconColor: "text-amber-500",
   },
   {
-    title: "Regular Updates",
+    title: "Live Updates",
     description:
-      "Consistently fresh content based on current events, archeological discoveries, and new socio-economic research.",
-    icon: Globe,
+      "Fresh content based on current events and new socio-economic research.",
+    icon: Zap,
+    className: "lg:col-span-1",
+    iconBg: "bg-rose-500/10",
+    iconColor: "text-rose-500",
   },
   {
     title: "Open Knowledge",
     description:
       "An accessible platform designed for both quick referencing and long-form deep study.",
-    icon: Search,
+    icon: Globe,
+    className: "lg:col-span-2",
+    iconBg: "bg-cyan-500/10",
+    iconColor: "text-cyan-500",
   },
 ];
 
@@ -61,34 +81,29 @@ const container = {
 };
 
 const item = {
-  hidden: { opacity: 0, scale: 0.95, y: 30 },
+  hidden: { opacity: 0, y: 20 },
   show: {
     opacity: 1,
-    scale: 1,
     y: 0,
-    transition: { type: "spring" as const, stiffness: 100 },
+    transition: { duration: 0.5, ease: "easeOut" as const },
   },
 };
 
 export function LandingFeatures() {
   return (
-    <section
-      id="features"
-      className="bg-muted/30 py-16 md:py-24 relative overflow-hidden"
-    >
+    <section id="features" className="py-8 lg:py-12 relative overflow-hidden" aria-label="Core platform features and capabilities">
       <div className="container px-4 md:px-6 relative z-10 mx-auto max-w-7xl">
-        <div className="mx-auto mb-16 flex max-w-[800px] flex-col items-center justify-center gap-4 text-center">
+        <div className="mx-auto mb-20 flex max-w-[800px] flex-col items-center justify-center gap-4 text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.6 }}
           >
-            <h2 className="text-3xl font-bold leading-[1.1] tracking-tighter sm:text-4xl md:text-5xl text-foreground">
-              Built for Intellectual Curiosity
+            <h2 className="text-4xl font-black tracking-tight sm:text-5xl md:text-6xl text-foreground mb-6">
+              Built for <span className="text-primary italic">Precision</span>
             </h2>
-            <div className="h-1 w-20 bg-primary mx-auto mt-6 rounded-full" />
-            <p className="mt-6 leading-relaxed text-muted-foreground sm:text-lg">
+            <p className="text-muted-foreground text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
               Explore a curated portal that transforms raw data and vast
               histories into digestible, fascinating articles.
             </p>
@@ -96,37 +111,55 @@ export function LandingFeatures() {
         </div>
 
         <motion.div
-          className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-[240px]"
           variants={container}
           initial="hidden"
           whileInView="show"
-          viewport={{ once: true, margin: "-100px" }}
+          viewport={{ once: true, margin: "-50px" }}
         >
           {features.map((feature, index) => (
-            <motion.div key={feature.title} variants={item}>
-              <Card className="bg-background/80 backdrop-blur-sm border-muted/50 transition-all hover:shadow-xl hover:border-primary/50 group h-full">
-                <CardHeader>
-                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+            <motion.div
+              key={feature.title}
+              variants={item}
+              title={feature.title}
+              role="article"
+              aria-label={`Feature: ${feature.title}`}
+              className={cn(
+                "group relative overflow-hidden rounded-3xl border border-white/5 bg-background/50 p-8 backdrop-blur-xl transition-all hover:border-primary/50 hover:bg-background/80",
+                feature.className
+              )}
+            >
+              <div className="flex h-full flex-col justify-between">
+                <div>
+                  <div
+                    className={cn(
+                      "mb-6 flex h-12 w-12 items-center justify-center rounded-2xl transition-all group-hover:scale-110 group-hover:rotate-3",
+                      feature.iconBg,
+                      feature.iconColor
+                    )}
+                  >
                     <feature.icon className="h-6 w-6" />
                   </div>
-                  <CardTitle className="text-xl font-semibold tracking-tight">
+                  <h3 className="mb-3 text-2xl font-bold tracking-tight text-foreground">
                     {feature.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+                  </h3>
                   <p className="text-muted-foreground leading-relaxed">
                     {feature.description}
                   </p>
-                </CardContent>
-              </Card>
+                </div>
+                
+                {/* Decorative element for large cards */}
+                {feature.className?.includes("lg:col-span-2") && (
+                   <div className="absolute top-0 right-0 h-full w-1/3 bg-gradient-to-l from-primary/5 to-transparent pointer-events-none" />
+                )}
+              </div>
+              
+              {/* Interaction Glow */}
+              <div className="absolute inset-0 -z-10 opacity-0 transition-opacity duration-500 group-hover:opacity-10 dark:group-hover:opacity-10 bg-[radial-gradient(circle_at_center,var(--primary)_0%,transparent_100%)] blur-2xl" />
             </motion.div>
           ))}
         </motion.div>
       </div>
-
-      {/* Decorative gradient blur */}
-      <div className="absolute top-1/2 left-0 -translate-y-1/2 w-72 h-72 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-3xl pointer-events-none" />
     </section>
   );
 }

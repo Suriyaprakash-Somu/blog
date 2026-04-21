@@ -9,6 +9,8 @@ export interface PlatformBlogCategory {
   metaTitle: string | null;
   metaDescription: string | null;
   metaKeywords: string | null;
+  content: string | null;
+  faq: Array<{ question: string; answer: string }> | null;
   createdAt: string;
   updatedAt: string;
   [key: string]: unknown;

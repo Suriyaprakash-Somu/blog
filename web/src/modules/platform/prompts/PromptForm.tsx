@@ -42,7 +42,8 @@ export function PromptForm({
     defaultValues: {
       module: data?.module || "prompt_blog_post",
       name: data?.id ? `${data.name} (Copy)` : data?.name || "",
-      content: data?.content || "",
+      systemPrompt: data?.systemPrompt || "",
+      userPromptTemplate: data?.userPromptTemplate || "",
     },
   });
 
@@ -118,17 +119,46 @@ export function PromptForm({
 
         <FormField
           control={form.control}
-          name="content"
+          name="systemPrompt"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Prompt Content</FormLabel>
+              <FormLabel>System Prompt</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Enter the system prompt content..."
+                  placeholder="Enter the system prompt - core instructions that define AI behavior..."
                   className="min-h-[400px] font-mono text-xs leading-relaxed"
                   {...field}
                 />
               </FormControl>
+              <FormDescription>
+                Core instructions that define the AI's behavior, tone, and output format. This is cached for performance.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="userPromptTemplate"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>User Prompt Template</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder={
+                    form.watch("module") === "prompt_blog_post"
+                      ? 'Example: Please generate the blog post for topic: "{{title}}". {{additionalInstructions}}'
+                      : 'Example: Generate metadata for: "{{name}}". {{additionalInstructions}}'
+                  }
+                  className="min-h-[150px] font-mono text-xs leading-relaxed"
+                  {...field}
+                />
+              </FormControl>
+              <FormDescription>
+                Template with placeholders. Required: {"{{title}}"} or {"{{name}}"} (based on module).
+                Optional: {"{{additionalInstructions}}"}
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

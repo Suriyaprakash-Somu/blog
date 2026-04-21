@@ -18,6 +18,7 @@ import type { PlatformBlogPost } from "./types";
 import type { PlatformBlogCategory } from "@/modules/platform/blogCategories/types";
 import type { PlatformBlogTag } from "@/modules/platform/blogTags/types";
 import { revalidateCache } from "@/actions/cache-actions";
+import { GenerationDialog } from "@/components/generation/GenerationSheet";
 
 const baseSchema = z.object({
   title: z.string().min(2, "Title is required").describe("Post Title"),
@@ -131,10 +132,12 @@ export function BlogPostForm({
   onSuccess,
 }: OperationComponentProps<
   PlatformBlogPost & { tagIds?: string[]; secondaryCategoryIds?: string[] }
->) {
+>
+) {
   const formRef = useRef<FormInstance>(null);
   const isEdit = Boolean(data);
   const [generating, setGenerating] = useState(false);
+  const [showGenerateSheet, setShowGenerateSheet] = useState(false);
 
   const { data: categoriesData } = useApiQuery<{ id: string; name: string }[]>({
     ...platformBlogCategoriesApi.options,
@@ -203,43 +206,57 @@ export function BlogPostForm({
     revalidatePaths: ["/", "/blog", "/categories", "/tags"],
   });
 
-  const generateMutation = useApiMutation<{ data: GeneratedData }, { title: string }>({
+  const generateMutation = useApiMutation<{ data: GeneratedData }, { title: string; additionalInstructions?: string | null; templateId?: string }>({
     endpoint: platformBlogPostsApi.generate.endpoint,
     method: "POST",
   });
 
-  const handleGenerateWithAI = async () => {
-    const form = formRef.current;
-    if (!form) return;
+  const handleGenerateWithAI = () => {
+    setShowGenerateSheet(true);
+  };
 
-    const title = form.state.values.title as string | undefined;
-    if (!title || title.length < 2) {
-      toast.error("Enter a post title first");
-      return;
-    }
-
+  const handleGenerateSubmit = async (
+    title: string,
+    additionalInstructions?: string,
+    templateId?: string
+  ) => {
     setGenerating(true);
     try {
-      const result = await generateMutation.mutateAsync({ title });
+      const result = await generateMutation.mutateAsync({
+        title,
+        additionalInstructions: additionalInstructions || null,
+        templateId: templateId || undefined,
+      });
 
       const generated = result.data;
-      form.setFieldValue("slug", generated.slug);
-      form.setFieldValue("excerpt", generated.excerpt);
-      form.setFieldValue("content", generated.content);
-      form.setFieldValue("metaTitle", generated.metaTitle);
-      form.setFieldValue("metaDescription", generated.metaDescription);
-      form.setFieldValue("metaKeywords", generated.metaKeywords);
-      if (generated.faq && generated.faq.length > 0) {
-        form.setFieldValue("faq", generated.faq);
+      const form = formRef.current;
+      if (form) {
+        form.setFieldValue("slug", generated.slug);
+        form.setFieldValue("excerpt", generated.excerpt);
+        form.setFieldValue("content", generated.content);
+        form.setFieldValue("metaTitle", generated.metaTitle);
+        form.setFieldValue("metaDescription", generated.metaDescription);
+        form.setFieldValue("metaKeywords", generated.metaKeywords);
+        if (generated.faq && generated.faq.length > 0) {
+          form.setFieldValue("faq", generated.faq);
+        }
       }
 
       toast.success("AI generated fields filled in!");
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "AI generation failed. Check LLM settings.",
-      );
+      setShowGenerateSheet(false);
+    } catch (error: any) {
+      if (error?.error?.cacheKey) {
+        toast.error(
+          `AI generation failed to parse. Response saved for review.`,
+          {
+            description: `Cache Key: ${error.error.cacheKey}`,
+          }
+        );
+      } else {
+        toast.error(
+          error instanceof Error ? error.message : "AI generation failed",
+        );
+      }
     } finally {
       setGenerating(false);
     }
@@ -379,6 +396,18 @@ export function BlogPostForm({
                 )}
                 {generating ? "Generating..." : "Generate with AI"}
               </Button>
+
+              <GenerationDialog
+                open={showGenerateSheet}
+                onOpenChange={setShowGenerateSheet}
+                onGenerate={handleGenerateSubmit}
+                moduleType="blog_post"
+                initialTitle={formRef.current?.state.values.title as string || ""}
+                isLoading={generating}
+                titleLabel="Post Title"
+                titlePlaceholder="e.g., How to Build a React App in 2026"
+                instructionsPlaceholder="e.g., Focus on React 19 features, include TypeScript examples..."
+              />
               <Button
                 type="button"
                 variant="secondary"

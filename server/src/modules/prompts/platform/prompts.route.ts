@@ -15,10 +15,25 @@ const getPromptsQuery = z.object({
 const createPromptBody = z.object({
   module: z.string().min(1),
   name: z.string().min(1),
-  content: z.string().min(1),
+  systemPrompt: z.string().min(1),
+  userPromptTemplate: z.string().min(1).refine(
+    (val) => val.includes("{{title}}") || val.includes("{{name}}"),
+    "User prompt template must contain {{title}} or {{name}} placeholder"
+  ),
 });
 
 const idParam = z.object({
+  id: z.string().uuid(),
+});
+
+const createTemplateBody = z.object({
+  module: z.string().min(1),
+  templateName: z.string().min(1),
+  systemPromptId: z.string().uuid(),
+  defaultInstructions: z.string().optional(),
+});
+
+const setDefaultTemplateBody = z.object({
   id: z.string().uuid(),
 });
 
@@ -61,7 +76,7 @@ export const promptsRoutes: FastifyPluginAsync = async (fastify) => {
       config: { rateLimit: rateLimitConfig.user },
     },
     async (request, reply) => {
-      const { module, name, content } = createPromptBody.parse(request.body);
+      const { module, name, systemPrompt, userPromptTemplate } = createPromptBody.parse(request.body);
 
       // Find max version
       const [maxVerRow] = await db
@@ -78,9 +93,10 @@ export const promptsRoutes: FastifyPluginAsync = async (fastify) => {
         .values({
           module,
           name,
-          content,
+          systemPrompt,
+          userPromptTemplate,
           version: nextVersion,
-          isActive: false, // Explicitly not active, user must manually activate
+          isActive: false,
         })
         .returning();
 
@@ -156,6 +172,183 @@ export const promptsRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ 
           error: { message: "Cannot delete an active prompt. Make another prompt active first." } 
         });
+      }
+
+      await db
+        .update(promptsTable)
+        .set({ deletedAt: new Date() })
+        .where(eq(promptsTable.id, id));
+
+      return { success: true };
+    }
+  );
+
+  // GET /templates -> List all templates
+  fastify.get(
+    "/templates",
+    {
+      preHandler: [requirePlatformAuth()],
+    },
+    async (request, reply) => {
+      const { module } = getPromptsQuery.parse(request.query);
+      
+      const conditions = [
+        eq(promptsTable.isTemplate, true),
+        isNull(promptsTable.deletedAt)
+      ];
+      
+      if (module) {
+        conditions.push(eq(promptsTable.module, module));
+      }
+
+      const templates = await db
+        .select({
+          id: promptsTable.id,
+          module: promptsTable.module,
+          name: promptsTable.templateName,
+          defaultInstructions: promptsTable.defaultInstructions,
+          isDefault: promptsTable.isDefault,
+          isActive: promptsTable.isActive,
+          createdAt: promptsTable.createdAt,
+        })
+        .from(promptsTable)
+        .where(and(...conditions))
+        .orderBy(desc(promptsTable.createdAt));
+      
+      return { templates, rowCount: templates.length };
+    }
+  );
+
+  // POST /templates -> Create new template
+  fastify.post(
+    "/templates",
+    {
+      preHandler: [
+        requirePlatformAuth(),
+        platformAbilityGuard(ACTIONS.UPDATE, SUBJECTS.PLATFORM_SETTINGS),
+      ],
+      config: { rateLimit: rateLimitConfig.user },
+    },
+    async (request, reply) => {
+      const { module, templateName, systemPromptId, defaultInstructions } = createTemplateBody.parse(request.body);
+
+      // Fetch the system prompt to copy
+      const [systemPrompt] = await db
+        .select()
+        .from(promptsTable)
+        .where(and(
+          eq(promptsTable.id, systemPromptId),
+          isNull(promptsTable.deletedAt)
+        ))
+        .limit(1);
+
+      if (!systemPrompt) {
+        return reply.status(404).send({ error: { message: "System prompt not found" } });
+      }
+
+      // Find max version for this module+template combination
+      const [maxVerRow] = await db
+        .select({ version: promptsTable.version })
+        .from(promptsTable)
+        .where(and(
+          eq(promptsTable.module, module),
+          eq(promptsTable.templateName, templateName),
+          isNull(promptsTable.deletedAt)
+        ))
+        .orderBy(desc(promptsTable.version))
+        .limit(1);
+
+      const nextVersion = maxVerRow ? maxVerRow.version + 1 : 1;
+
+      // Create template (copy of system prompt with template flags)
+      const [template] = await db
+        .insert(promptsTable)
+        .values({
+          module,
+          name: templateName,
+          templateName,
+          systemPrompt: systemPrompt.systemPrompt,
+          userPromptTemplate: systemPrompt.userPromptTemplate,
+          isTemplate: true,
+          defaultInstructions: defaultInstructions ?? null,
+          isActive: true,
+          version: nextVersion,
+        })
+        .returning();
+
+      return { data: template };
+    }
+  );
+
+  // PUT /templates/:id/set-default -> Set template as default for module
+  fastify.put(
+    "/templates/:id/set-default",
+    {
+      preHandler: [
+        requirePlatformAuth(),
+        platformAbilityGuard(ACTIONS.UPDATE, SUBJECTS.PLATFORM_SETTINGS),
+      ],
+      config: { rateLimit: rateLimitConfig.user },
+    },
+    async (request, reply) => {
+      const { id } = idParam.parse(request.params);
+
+      const [template] = await db
+        .select()
+        .from(promptsTable)
+        .where(and(eq(promptsTable.id, id), isNull(promptsTable.deletedAt)))
+        .limit(1);
+
+      if (!template) {
+        return reply.status(404).send({ error: { message: "Template not found" } });
+      }
+
+      if (!template.isTemplate) {
+        return reply.status(400).send({ error: { message: "Not a template" } });
+      }
+
+      await db.transaction(async (tx) => {
+        // Unset all defaults for this module
+        await tx
+          .update(promptsTable)
+          .set({ isDefault: false })
+          .where(and(
+            eq(promptsTable.module, template.module),
+            eq(promptsTable.isDefault, true),
+            isNull(promptsTable.deletedAt)
+          ));
+
+        // Set this as the default template
+        await tx
+          .update(promptsTable)
+          .set({ isDefault: true })
+          .where(eq(promptsTable.id, id));
+      });
+
+      return { success: true };
+    }
+  );
+
+  // DELETE /templates/:id -> Soft delete template
+  fastify.delete(
+    "/templates/:id",
+    {
+      preHandler: [
+        requirePlatformAuth(),
+        platformAbilityGuard(ACTIONS.UPDATE, SUBJECTS.PLATFORM_SETTINGS),
+      ],
+    },
+    async (request, reply) => {
+      const { id } = idParam.parse(request.params);
+
+      const [template] = await db
+        .select()
+        .from(promptsTable)
+        .where(and(eq(promptsTable.id, id), isNull(promptsTable.deletedAt)))
+        .limit(1);
+
+      if (!template) {
+        return reply.status(404).send({ error: { message: "Template not found" } });
       }
 
       await db

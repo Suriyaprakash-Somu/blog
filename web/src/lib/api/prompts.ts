@@ -4,7 +4,8 @@ export type Prompt = {
   id: string;
   module: string;
   name: string;
-  content: string;
+  systemPrompt: string;
+  userPromptTemplate: string;
   isActive: boolean;
   version: number;
   createdAt: string;
@@ -17,7 +18,12 @@ export async function getPrompts(module?: string): Promise<Prompt[]> {
   return res.data;
 }
 
-export async function createPrompt(data: { module: string; name: string; content: string }): Promise<Prompt> {
+export async function createPrompt(data: {
+  module: string;
+  name: string;
+  systemPrompt: string;
+  userPromptTemplate: string;
+}): Promise<Prompt> {
   const res = await clientFetch<{ data: Prompt }>(`/api/platform/prompts`, {
     method: "POST",
     body: data,

@@ -264,3 +264,185 @@ export async function chatCompletionJSON<T = unknown>(
     throw new Error(`LLM returned invalid JSON: ${raw.slice(0, 500)}`);
   }
 }
+
+/* ------------------------------------------------------------------ */
+/*  Enhanced Generation with Cache                                    */
+/* ------------------------------------------------------------------ */
+
+import { z } from "zod";
+import { createCacheKey, createPromptHash, getFromCache, saveToCache } from "../../../core/llmResponseStorage.js";
+import { parseAndStoreResponse } from "../../../core/llmResponseParser.js";
+
+export interface LLMGenerationOptions<T> {
+  messages: ChatMessage[];
+  temperature?: number;
+  maxTokens?: number;
+  jsonMode?: boolean;
+  
+  // Caching
+  cacheKey?: string;
+  enableCache?: boolean;
+  
+  // Context
+  module: string;
+  inputTitle?: string;
+  inputName?: string;
+  additionalInstructions?: string | null;
+  
+  // Schema for validation
+  schema: z.ZodSchema<T>;
+}
+
+export interface LLMGenerationResult<T> {
+  data: T;
+  fromCache: boolean;
+  cacheKey: string;
+}
+
+export class LLMGenerationError extends Error {
+  constructor(
+    message: string,
+    public cacheKey: string,
+    public rawResponse?: string
+  ) {
+    super(message);
+    this.name = "LLMGenerationError";
+  }
+}
+
+export async function generateWithCache<T>(
+  opts: LLMGenerationOptions<T>,
+): Promise<LLMGenerationResult<T>> {
+  const {
+    messages,
+    temperature = 0.7,
+    maxTokens,
+    jsonMode = true,
+    cacheKey,
+    enableCache = true,
+    module,
+    inputTitle,
+    inputName,
+    additionalInstructions,
+    schema,
+  } = opts;
+
+  // Extract system and user prompts from messages
+  const systemPrompt = messages.find((m) => m.role === "system")?.content ?? "";
+  const userPrompt = messages.find((m) => m.role === "user")?.content ?? "";
+  const promptHash = createPromptHash(systemPrompt, userPrompt);
+
+  // Generate cache key if not provided
+  const finalCacheKey = cacheKey ?? createCacheKey({
+    module,
+    systemPrompt,
+    userPrompt,
+    inputTitle,
+    inputName,
+    temperature,
+  });
+
+  // Check cache
+  if (enableCache) {
+    const cached = await getFromCache(finalCacheKey);
+    if (cached && cached.status === "success" && cached.parsedData) {
+      console.log(`[LLM Cache] HIT for key: ${finalCacheKey}`);
+      return {
+        data: cached.parsedData as T,
+        fromCache: true,
+        cacheKey: finalCacheKey,
+      };
+    }
+    if (cached) {
+      console.log(`[LLM Cache] Found but status is ${cached.status}, regenerating...`);
+    } else {
+      console.log(`[LLM Cache] MISS for key: ${finalCacheKey}`);
+    }
+  }
+
+  // Call LLM
+  console.log(`[LLM Generation] Calling LLM for module: ${module}`);
+  let rawResponse: string;
+  try {
+    rawResponse = await chatCompletion({
+      messages,
+      temperature,
+      maxTokens,
+      jsonMode,
+    });
+  } catch (llmError) {
+    console.error(`[LLM Generation] LLM call failed for module: ${module}`, llmError);
+    throw llmError;
+  }
+
+  console.log(`[LLM Generation] LLM response received for module: ${module}, length: ${rawResponse?.length ?? 0}`);
+
+  // Parse and store
+  const result = await parseAndStoreResponse({
+    cacheKey: finalCacheKey,
+    promptHash,
+    module,
+    rawResponse,
+    schema,
+    inputTitle,
+    inputName,
+    additionalInstructions,
+    systemPrompt,
+    userPrompt,
+    model: undefined,
+    temperature: temperature?.toString(),
+    tokenUsage: undefined,
+  });
+
+  if (!result.success) {
+    console.error(`[LLM Generation] Failed to parse response for module: ${module}`);
+    throw new LLMGenerationError(
+      result.errorMessage ?? "LLM response could not be parsed",
+      finalCacheKey,
+      rawResponse
+    );
+  }
+
+  return {
+    data: result.data!,
+    fromCache: false,
+    cacheKey: finalCacheKey,
+  };
+}
+
+/**
+ * Manual correction function (for UI)
+ */
+export async function correctCachedResponse(params: {
+  cacheKey: string;
+  correctedJson: string;
+  schema: z.ZodSchema<unknown>;
+}): Promise<{ success: boolean; error?: string }> {
+  const { cacheKey, correctedJson, schema } = params;
+
+  try {
+    const parsed = JSON.parse(correctedJson);
+    const validated = schema.parse(parsed);
+
+    await saveToCache({
+      cacheKey,
+      promptHash: "",
+      module: "",
+      inputTitle: null,
+      inputName: null,
+      additionalInstructions: null,
+      systemPrompt: "",
+      userPrompt: "",
+      rawResponse: correctedJson,
+      parsedData: validated as unknown,
+      status: "corrected",
+      errorMessage: null,
+      errorStack: null,
+    });
+
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Invalid JSON";
+    return { success: false, error: message };
+  }
+}

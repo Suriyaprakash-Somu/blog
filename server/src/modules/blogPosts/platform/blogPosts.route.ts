@@ -1,4 +1,4 @@
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, desc } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../db/index.js";
 import { platformSettings } from "../../../db/schema/settings.js";
@@ -12,7 +12,10 @@ import { uploadedFiles } from "../../uploads/uploadedFiles.schema.js";
 import { blogPosts } from "../blogPosts.schema.js";
 import { blogPostTags } from "../blogPostTags.schema.js";
 import { blogPostSecondaryCategories } from "../blogPostSecondaryCategories.schema.js";
-import { chatCompletion } from "../../settings/llm/completion.js";
+import {
+  generateWithCache,
+  LLMGenerationError,
+} from "../../settings/llm/completion.js";
 import {
   buildBlogPostPrompt,
   blogPostGeneratedSchema,
@@ -57,7 +60,7 @@ const { insertSchema, updateSchema } = createZodSchemas(blogPosts, {
   required: ["title", "slug"],
   strict: true,
   overrides: {
-    featuredImageFileId: z.string().uuid().nullable().optional(),
+    featuredImageFileId: z.string().uuid().nullable().optional().default(null),
     categoryId: z.string().uuid().nullable().optional(),
     secondaryCategoryIds: z.array(z.string().uuid()).optional(),
     authorId: z.string().uuid().nullable().optional(),
@@ -327,10 +330,39 @@ const crudRoutes = createCrudRoutes({
 /* ------------------------------------------------------------------ */
 
 const generateBodySchema = z.object({
-  title: z.string().min(1, "Post title is required"),
+  title: z.string().min(10, "Title must be at least 10 characters"),
+  additionalInstructions: z.string().optional().nullable(),
+  templateId: z.string().uuid().optional(),
 });
 
 const blogPostsGenerateRoute: FastifyPluginAsync = async (fastify) => {
+  // GET /generation-templates -> List available templates
+  fastify.get(
+    "/generation-templates",
+    {
+      preHandler: [requirePlatformAuth()],
+    },
+    async (request, reply) => {
+      const templates = await db
+        .select({
+          id: promptsTable.id,
+          name: promptsTable.templateName,
+          defaultInstructions: promptsTable.defaultInstructions,
+        })
+        .from(promptsTable)
+        .where(and(
+          eq(promptsTable.module, "prompt_blog_post"),
+          eq(promptsTable.isTemplate, true),
+          eq(promptsTable.isActive, true),
+          isNull(promptsTable.deletedAt)
+        ))
+        .orderBy(desc(promptsTable.createdAt));
+      
+      return { templates };
+    }
+  );
+
+  // POST /generate -> Generate blog post with AI
   fastify.post(
     "/generate",
     {
@@ -341,73 +373,97 @@ const blogPostsGenerateRoute: FastifyPluginAsync = async (fastify) => {
       config: { rateLimit: rateLimitConfig.user },
     },
     async (request, reply) => {
-      const { title } = generateBodySchema.parse(request.body);
-      try {
-        console.log(`[GENERATION] Starting AI blog post generation for title: "${title}"`);
-        request.log.info({ title }, "Starting AI blog post generation");
-        
-        const [promptSetting] = await db
+      const { title, additionalInstructions, templateId } = generateBodySchema.parse(request.body);
+      console.log(`[GENERATION] Starting AI blog post generation for title: "${title}"`);
+      request.log.info({ title }, "Starting AI blog post generation");
+      
+      // Fetch system prompt (from template, default template, or active)
+      let systemPrompt: string | null = null;
+      let userPromptTemplate: string | null = null;
+
+      if (templateId) {
+        // Use selected template's system prompt
+        const [template] = await db
           .select()
           .from(promptsTable)
-          .where(
-            and(
+          .where(and(
+            eq(promptsTable.id, templateId),
+            isNull(promptsTable.deletedAt)
+          ))
+          .limit(1);
+        
+        systemPrompt = template?.systemPrompt ?? null;
+        userPromptTemplate = template?.userPromptTemplate ?? null;
+      } else {
+        // Try to get default template first
+        const [defaultTemplate] = await db
+          .select()
+          .from(promptsTable)
+          .where(and(
+            eq(promptsTable.module, "prompt_blog_post"),
+            eq(promptsTable.isDefault, true),
+            eq(promptsTable.isTemplate, true),
+            isNull(promptsTable.deletedAt)
+          ))
+          .limit(1);
+        
+        if (defaultTemplate) {
+          systemPrompt = defaultTemplate.systemPrompt;
+          userPromptTemplate = defaultTemplate.userPromptTemplate;
+        } else {
+          // Fallback to active prompt for module
+          const [activePrompt] = await db
+            .select()
+            .from(promptsTable)
+            .where(and(
               eq(promptsTable.module, "prompt_blog_post"),
               eq(promptsTable.isActive, true),
               isNull(promptsTable.deletedAt)
-            )
-          )
-          .limit(1);
-        const customPrompt = promptSetting?.content ? promptSetting.content : null;
+            ))
+            .limit(1);
+          
+          systemPrompt = activePrompt?.systemPrompt ?? null;
+          userPromptTemplate = activePrompt?.userPromptTemplate ?? null;
+        }
+      }
 
-        const messages = buildBlogPostPrompt(title, customPrompt);
+      const messages = buildBlogPostPrompt(
+        title,
+        systemPrompt,
+        userPromptTemplate,
+        additionalInstructions ?? null
+      );
 
-        console.log(`[GENERATION] Sending request to LLM (chatCompletion)...`);
-        request.log.info("Sending request to LLM...");
-        const rawText = await chatCompletion({
+      try {
+        const result = await generateWithCache({
           messages,
           temperature: 0.7,
           maxTokens: 16000,
           jsonMode: true,
+          cacheKey: `blog_post:${title}:${Date.now()}`,
+          enableCache: true,
+          module: "blog_post",
+          inputTitle: title,
+          additionalInstructions: additionalInstructions ?? null,
+          schema: blogPostGeneratedSchema,
         });
-
-        console.log(`[GENERATION] Raw text received. Length:`, rawText.length);
-        console.log(`[GENERATION] Raw LLM response (first 1000 chars):`, rawText.slice(0, 1000));
-
-        let text = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-        const firstBrace = text.indexOf('{');
-        const lastBrace = text.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-          text = text.substring(firstBrace, lastBrace + 1);
-        }
-        const parsedData = robustJsonParse<any>(text, {
-          slug: "",
-          metaTitle: "",
-          metaDescription: "",
-          metaKeywords: "",
-          excerpt: "",
-          content: text
-        });
-
-        // Only use specialized list extractor as fallback if FAQ is missing
-        if (!parsedData.faq || !Array.isArray(parsedData.faq) || parsedData.faq.length === 0) {
-          console.log(`[GENERATION] FAQ not found in parsed data, trying extractListFromTruncatedJson...`);
-          parsedData.faq = extractListFromTruncatedJson(text, "faq");
-        }
-
-        console.log(`[GENERATION] Parsed data keys:`, Object.keys(parsedData));
-        console.log(`[GENERATION] FAQ items found:`, parsedData.faq?.length || 0);
-        if (parsedData.faq?.length > 0) {
-          console.log(`[GENERATION] First FAQ:`, JSON.stringify(parsedData.faq[0]));
-        }
-
-        console.log(`[GENERATION] Schema validation running...`);
-        request.log.info("Validating schema...");
-        const validated = blogPostGeneratedSchema.parse(parsedData);
 
         console.log(`[GENERATION] Schema validation successful.`);
         request.log.info("AI generation successful");
-        return { success: true, data: validated };
+        return { success: true, data: result.data };
       } catch (err) {
+        if (err instanceof LLMGenerationError) {
+          console.error(`[GENERATION ERROR] Parsing failed:`, err.message);
+          request.log.error({ cacheKey: err.cacheKey }, "LLM response parsing failed");
+          return reply.status(400).send({
+            success: false,
+            error: { 
+              message: "LLM response could not be parsed",
+              cacheKey: err.cacheKey,
+            },
+          });
+        }
+        
         console.error(`[GENERATION ERROR] Request failed:`, err);
         request.log.error({ err }, "AI generation failed");
         const message =

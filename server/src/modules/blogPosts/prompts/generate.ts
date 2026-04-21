@@ -148,12 +148,32 @@ You must output ONLY valid JSON matching this schema:
 }
 `;
 
-export function buildBlogPostPrompt(postTitle: string, customSystemPrompt?: string | null): ChatMessage[] {
+export const DEFAULT_BLOG_POST_USER_TEMPLATE = `Please generate the blog post payload for the topic: "{{title}}". {{additionalInstructions}}`;
+
+export function buildBlogPostPrompt(
+  postTitle: string,
+  customSystemPrompt?: string | null,
+  customUserTemplate?: string | null,
+  additionalInstructions?: string | null
+): ChatMessage[] {
+  const systemPrompt = customSystemPrompt ?? DEFAULT_BLOG_POST_SYSTEM_PROMPT;
+  const userTemplate = customUserTemplate ?? DEFAULT_BLOG_POST_USER_TEMPLATE;
+  
+  let userContent = userTemplate
+    .replace(/{{title}}/g, postTitle)
+    .replace(/{{name}}/g, postTitle);
+  
+  if (additionalInstructions) {
+    userContent = userContent.replace(/{{additionalInstructions}}/g, additionalInstructions);
+  } else {
+    userContent = userContent.replace(" {{additionalInstructions}}", "").replace("{{additionalInstructions}}", "");
+  }
+
+  console.log(`[PROMPT] Blog Post - System: ${systemPrompt.slice(0, 80)}...`);
+  console.log(`[PROMPT] Blog Post - User: ${userContent}`);
+
   return [
-    { role: "system", content: customSystemPrompt ? customSystemPrompt : DEFAULT_BLOG_POST_SYSTEM_PROMPT },
-    {
-      role: "user",
-      content: `Please generate the blog post payload for the topic: "${postTitle}". Output ONLY valid JSON according to the schema. Follow all vagueness prohibitions, maximum 4000-word limit formatting, and sourcing rules strictly.`,
-    },
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userContent.trim() },
   ];
 }

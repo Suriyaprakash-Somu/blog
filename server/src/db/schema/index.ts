@@ -57,3 +57,6 @@ export * from "../../modules/automation/automation.schema.js";
 
 // Prompts
 export * from "../../modules/prompts/prompts.schema.js";
+
+// LLM Response Cache
+export * from "../../modules/llmCache/llmCache.schema.js";

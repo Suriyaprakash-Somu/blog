@@ -5,9 +5,10 @@ const API_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3020";
 
 const STATIC_PAGES = [
     { path: "/", changeFrequency: "weekly", priority: 1 },
+    { path: "/llms.txt", changeFrequency: "daily", priority: 0.9 },
     { path: "/blog", changeFrequency: "daily", priority: 0.9 },
     { path: "/tags", changeFrequency: "weekly", priority: 0.6 },
-    { path: "/blog-categories", changeFrequency: "weekly", priority: 0.6 },
+    { path: "/categories", changeFrequency: "weekly", priority: 0.6 },
     { path: "/about", changeFrequency: "yearly", priority: 0.5 },
     { path: "/contact", changeFrequency: "yearly", priority: 0.5 },
     { path: "/privacy-policy", changeFrequency: "yearly", priority: 0.2 },
@@ -56,7 +57,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
             // 3) Categories
             ...data.categories.map((c) => ({
-                url: `${BASE_URL}/blog-categories/${c.slug}`,
+                url: `${BASE_URL}/categories/${c.slug}`,
                 lastModified: new Date(c.updatedAt || now),
                 changeFrequency: "weekly" as const,
                 priority: 0.7,

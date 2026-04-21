@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
         rules: [
             {
                 userAgent: "*",
-                allow: ["/", "/api/media", "/api/media/"],
+                allow: ["/", "/api/media", "/api/media/", "/llms.txt"],
                 disallow: [
                     "/dashboard",
                     "/author",
@@ -16,6 +16,10 @@ export default function robots(): MetadataRoute.Robots {
                     "/tenant",
                 ],
             },
+            {
+                userAgent: ["GPTBot", "Claude-bot", "PerplexityBot", "CCBot"],
+                allow: ["/", "/llms.txt"],
+            }
         ],
         sitemap: [`${BASE_URL}/sitemap.xml`],
     };

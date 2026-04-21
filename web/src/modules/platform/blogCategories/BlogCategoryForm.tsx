@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import type { OperationComponentProps } from "@/components/dataTable/types";
 import type { PlatformBlogCategory } from "./types";
 import { revalidateCache } from "@/actions/cache-actions";
+import { GenerationDialog } from "@/components/generation/GenerationSheet";
 
 const categoryFormSchema = z.object({
   name: z.string().min(2, "Name is required").describe("Category Name"),
@@ -64,6 +65,32 @@ const categoryFormSchema = z.object({
     .string()
     .optional()
     .describe("SEO Meta Keywords (comma separated)"),
+  content: z
+    .string()
+    .optional()
+    .describe(
+      JSON.stringify({
+        label: "Pillar Content",
+        inputType: "markdown",
+        placeholder: "Write extended markdown content about this category...",
+      })
+    ),
+  faq: z
+    .array(
+      z.object({
+        question: z.string().describe(JSON.stringify({ label: "Question" })),
+        answer: z.string().describe(JSON.stringify({ label: "Answer", inputType: "textarea" })),
+      })
+    )
+    .optional()
+    .describe(
+      JSON.stringify({
+        label: "Frequently Asked Questions (FAQ)",
+        inputType: "array",
+        singularLabel: "FAQ Item",
+        sortable: true,
+      })
+    ),
   status: z
     .enum(["active", "inactive"])
     .default("active")
@@ -87,6 +114,8 @@ interface GeneratedData {
   metaTitle: string;
   metaDescription: string;
   metaKeywords: string;
+  content: string;
+  faq: Array<{ question: string; answer: string }>;
 }
 
 export function BlogCategoryForm({
@@ -96,6 +125,7 @@ export function BlogCategoryForm({
   const formRef = useRef<FormInstance>(null);
   const isEdit = Boolean(data);
   const [generating, setGenerating] = useState(false);
+  const [showGenerateSheet, setShowGenerateSheet] = useState(false);
 
   const mutation = useApiMutation<
     PlatformBlogCategory,
@@ -110,39 +140,55 @@ export function BlogCategoryForm({
     revalidatePaths: ["/", "/categories", "/blog"],
   });
 
-  const generateMutation = useApiMutation<{ data: GeneratedData }, { name: string }>({
+  const generateMutation = useApiMutation<{ data: GeneratedData }, { name: string; additionalInstructions?: string | null; templateId?: string }>({
     endpoint: platformBlogCategoriesApi.generate.endpoint,
     method: "POST",
   });
 
-  const handleGenerateWithAI = async () => {
-    const form = formRef.current;
-    if (!form) return;
+  const handleGenerateWithAI = () => {
+    setShowGenerateSheet(true);
+  };
 
-    const name = form.state.values.name as string | undefined;
-    if (!name || name.length < 2) {
-      toast.error("Enter a category name first");
-      return;
-    }
-
+  const handleGenerateSubmit = async (
+    name: string,
+    additionalInstructions?: string,
+    templateId?: string
+  ) => {
     setGenerating(true);
     try {
-      const result = await generateMutation.mutateAsync({ name });
+      const result = await generateMutation.mutateAsync({
+        name,
+        additionalInstructions: additionalInstructions || null,
+        templateId: templateId || undefined,
+      });
 
       const generated = result.data;
-      form.setFieldValue("slug", generated.slug);
-      form.setFieldValue("description", generated.description);
-      form.setFieldValue("metaTitle", generated.metaTitle);
-      form.setFieldValue("metaDescription", generated.metaDescription);
-      form.setFieldValue("metaKeywords", generated.metaKeywords);
+      const form = formRef.current;
+      if (form) {
+        form.setFieldValue("slug", generated.slug);
+        form.setFieldValue("description", generated.description);
+        form.setFieldValue("metaTitle", generated.metaTitle);
+        form.setFieldValue("metaDescription", generated.metaDescription);
+        form.setFieldValue("metaKeywords", generated.metaKeywords);
+        form.setFieldValue("content", generated.content);
+        form.setFieldValue("faq", generated.faq);
+      }
 
       toast.success("AI generated fields filled in!");
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "AI generation failed. Check LLM settings.",
-      );
+      setShowGenerateSheet(false);
+    } catch (error: any) {
+      if (error?.error?.cacheKey) {
+        toast.error(
+          `AI generation failed to parse. Response saved for review.`,
+          {
+            description: `Cache Key: ${error.error.cacheKey}`,
+          }
+        );
+      } else {
+        toast.error(
+          error instanceof Error ? error.message : "AI generation failed",
+        );
+      }
     } finally {
       setGenerating(false);
     }
@@ -182,37 +228,54 @@ export function BlogCategoryForm({
             metaTitle: data.metaTitle || "",
             metaDescription: data.metaDescription || "",
             metaKeywords: data.metaKeywords || "",
+            content: data.content || "",
+            faq: data.faq || [],
             status: data.status,
           }
           : {
             status: "active",
-            icon: "",
+            icon: "LayoutGrid",
+            faq: [],
           }
       }
       onSubmit={handleSubmit}
       submitLabel={isEdit ? "Update Category" : "Create Category"}
       isLoading={mutation.isPending}
       renderActions={({ canSubmit, isSubmitting }) => (
-        <div className="flex items-center justify-between gap-3 pt-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={generating}
-            onClick={handleGenerateWithAI}
-          >
-            {generating ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="mr-1.5 h-4 w-4" />
-            )}
-            {generating ? "Generating..." : "Generate with AI"}
-          </Button>
-          <Button type="submit" disabled={!canSubmit || isSubmitting}>
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isEdit ? "Update Category" : "Create Category"}
-          </Button>
-        </div>
+        <>
+          <div className="flex items-center justify-between gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={generating}
+              onClick={handleGenerateWithAI}
+            >
+              {generating ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="mr-1.5 h-4 w-4" />
+              )}
+              {generating ? "Generating..." : "Generate with AI"}
+            </Button>
+            <Button type="submit" disabled={!canSubmit || isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isEdit ? "Update Category" : "Create Category"}
+            </Button>
+          </div>
+
+          <GenerationDialog
+            open={showGenerateSheet}
+            onOpenChange={setShowGenerateSheet}
+            onGenerate={handleGenerateSubmit}
+            moduleType="blog_category"
+            initialTitle={formRef.current?.state.values.name as string || ""}
+            isLoading={generating}
+            titleLabel="Category Name"
+            titlePlaceholder="e.g., Technology News"
+            instructionsPlaceholder="e.g., Emphasize latest trends, include industry examples..."
+          />
+        </>
       )}
     />
   );

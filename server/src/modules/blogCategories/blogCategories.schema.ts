@@ -1,6 +1,7 @@
 import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 import {
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -40,6 +41,12 @@ export const blogCategories = pgTable(
     metaTitle: varchar("meta_title", { length: 255 }),
     metaDescription: text("meta_description"),
     metaKeywords: text("meta_keywords"),
+
+    // Content Output / Advanced SEO
+    content: text("content"),
+    faq: jsonb("faq")
+      .$type<Array<{ question: string; answer: string }>>()
+      .default([]),
 
     // Timestamps
     createdAt: timestamp("created_at").notNull().defaultNow(),

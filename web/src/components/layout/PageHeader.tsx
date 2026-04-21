@@ -71,7 +71,7 @@ export function PageHeader({
         )}
       >
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight sm:text-4xl bg-linear-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-4xl">
             {title}
           </h1>
           {description ? (

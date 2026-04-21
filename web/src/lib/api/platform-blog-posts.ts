@@ -24,6 +24,11 @@ export const platformBlogPostsApi = {
     endpoint: "/api/platform/blog-posts",
     method: "DELETE" as const,
   },
+  getGenerationTemplates: {
+    key: "platform-blog-posts-generation-templates",
+    endpoint: "/api/platform/blog-posts/generation-templates",
+    method: "GET" as const,
+  },
   generate: {
     key: "platform-blog-posts-generate",
     endpoint: "/api/platform/blog-posts/generate",

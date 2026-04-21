@@ -57,11 +57,8 @@ export function Navbar({ siteSettings }: { siteSettings?: SiteSettings }) {
   return (
     <motion.header
       initial={false}
-      animate={{
-        height: isScrolled ? "72px" : "80px",
-      }}
       className={cn(
-        "fixed top-0 left-0 right-0 z-50 flex items-center transition-all duration-300 border-b",
+        "fixed top-0 left-0 right-0 z-50 flex items-center h-16 transition-all duration-300 border-b",
         isScrolled
           ? "bg-background/80 backdrop-blur-xl border-border/40 shadow-sm"
           : "bg-transparent border-transparent",
@@ -154,7 +151,7 @@ export function Navbar({ siteSettings }: { siteSettings?: SiteSettings }) {
           >
             Login
           </Link>
-          <Link href="/articles">
+          <Link href="/blog">
             <Button
               size="sm"
               className="rounded-full px-5 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 font-semibold h-11"
@@ -245,7 +242,7 @@ export function Navbar({ siteSettings }: { siteSettings?: SiteSettings }) {
                       Login
                     </Button>
                   </Link>
-                  <Link href="/articles" onClick={() => setIsOpen(false)}>
+                  <Link href="/blog" onClick={() => setIsOpen(false)}>
                     <Button className="w-full rounded-2xl h-12 text-sm font-semibold shadow-md shadow-primary/20">
                       Start Reading
                     </Button>

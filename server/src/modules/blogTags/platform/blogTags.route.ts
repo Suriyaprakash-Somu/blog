@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, desc } from "drizzle-orm";
 import { z } from "zod";
 import type { FastifyPluginAsync } from "fastify";
 import { CRUD_ACCESS } from "../../../access/crudAccess.js";
@@ -10,7 +10,10 @@ import { prompts as promptsTable } from "../../prompts/prompts.schema.js";
 import { platformSettings } from "../../../db/schema/settings.js";
 import { uploadedFiles } from "../../uploads/uploadedFiles.schema.js";
 import { blogTags } from "../blogTags.schema.js";
-import { chatCompletionJSON } from "../../settings/llm/completion.js";
+import {
+  generateWithCache,
+  LLMGenerationError,
+} from "../../settings/llm/completion.js";
 import {
   buildBlogTagPrompt,
   blogTagGeneratedSchema,
@@ -34,7 +37,14 @@ const { insertSchema, updateSchema } = createZodSchemas(blogTags, {
   required: ["name", "slug"],
   strict: true,
   overrides: {
-    imageFileId: z.string().uuid().optional(),
+    imageFileId: z.string().uuid().optional().nullable().default(null),
+    content: z.string().optional().nullable(),
+    faq: z.array(
+      z.object({
+        question: z.string(),
+        answer: z.string(),
+      })
+    ).optional().nullable(),
   },
 });
 
@@ -183,10 +193,39 @@ const crudRoutes = createCrudRoutes({
 /* ------------------------------------------------------------------ */
 
 const generateBodySchema = z.object({
-  name: z.string().min(1, "Tag name is required"),
+  name: z.string().min(3, "Name must be at least 3 characters"),
+  additionalInstructions: z.string().optional().nullable(),
+  templateId: z.string().uuid().optional(),
 });
 
 const blogTagsGenerateRoute: FastifyPluginAsync = async (fastify) => {
+  // GET /generation-templates
+  fastify.get(
+    "/generation-templates",
+    {
+      preHandler: [requirePlatformAuth()],
+    },
+    async (request, reply) => {
+      const templates = await db
+        .select({
+          id: promptsTable.id,
+          name: promptsTable.templateName,
+          defaultInstructions: promptsTable.defaultInstructions,
+        })
+        .from(promptsTable)
+        .where(and(
+          eq(promptsTable.module, "prompt_blog_tag"),
+          eq(promptsTable.isTemplate, true),
+          eq(promptsTable.isActive, true),
+          isNull(promptsTable.deletedAt)
+        ))
+        .orderBy(desc(promptsTable.createdAt));
+      
+      return { templates };
+    }
+  );
+
+  // POST /generate
   fastify.post(
     "/generate",
     {
@@ -197,29 +236,91 @@ const blogTagsGenerateRoute: FastifyPluginAsync = async (fastify) => {
       config: { rateLimit: rateLimitConfig.user },
     },
     async (request, reply) => {
-      const { name } = generateBodySchema.parse(request.body);
-      try {
-        const [promptSetting] = await db
+      const { name, additionalInstructions, templateId } = generateBodySchema.parse(request.body);
+      
+      // Fetch system prompt (from template, default template, or active)
+      let systemPrompt: string | null = null;
+      let userPromptTemplate: string | null = null;
+
+      if (templateId) {
+        // Use selected template's system prompt
+        const [template] = await db
           .select()
           .from(promptsTable)
-          .where(
-            and(
+          .where(and(
+            eq(promptsTable.id, templateId),
+            isNull(promptsTable.deletedAt)
+          ))
+          .limit(1);
+        
+        systemPrompt = template?.systemPrompt ?? null;
+        userPromptTemplate = template?.userPromptTemplate ?? null;
+      } else {
+        // Try to get default template first
+        const [defaultTemplate] = await db
+          .select()
+          .from(promptsTable)
+          .where(and(
+            eq(promptsTable.module, "prompt_blog_tag"),
+            eq(promptsTable.isDefault, true),
+            eq(promptsTable.isTemplate, true),
+            isNull(promptsTable.deletedAt)
+          ))
+          .limit(1);
+        
+        if (defaultTemplate) {
+          systemPrompt = defaultTemplate.systemPrompt;
+          userPromptTemplate = defaultTemplate.userPromptTemplate;
+        } else {
+          // Fallback to active prompt for module
+          const [activePrompt] = await db
+            .select()
+            .from(promptsTable)
+            .where(and(
               eq(promptsTable.module, "prompt_blog_tag"),
               eq(promptsTable.isActive, true),
               isNull(promptsTable.deletedAt)
-            )
-          )
-          .limit(1);
-        const customPrompt = promptSetting?.content ? promptSetting.content : null;
+            ))
+            .limit(1);
+          
+          systemPrompt = activePrompt?.systemPrompt ?? null;
+          userPromptTemplate = activePrompt?.userPromptTemplate ?? null;
+        }
+      }
 
-        const messages = buildBlogTagPrompt(name, customPrompt);
-        const result = await chatCompletionJSON<BlogTagGenerated>({
+      const messages = buildBlogTagPrompt(
+        name,
+        systemPrompt,
+        userPromptTemplate,
+        additionalInstructions ?? null
+      );
+
+      try {
+        const result = await generateWithCache({
           messages,
           temperature: 0.7,
+          jsonMode: true,
+          cacheKey: `blog_tag:${name}:${Date.now()}`,
+          enableCache: true,
+          module: "blog_tag",
+          inputName: name,
+          additionalInstructions: additionalInstructions ?? null,
+          schema: blogTagGeneratedSchema,
         });
-        const validated = blogTagGeneratedSchema.parse(result);
-        return { success: true, data: validated };
+
+        return { success: true, data: result.data };
       } catch (err) {
+        console.error("[GENERATION ERROR] Blog tag generation failed:", err);
+        if (err instanceof LLMGenerationError) {
+          return reply.status(400).send({
+            success: false,
+            error: { 
+              message: "LLM response could not be parsed",
+              cacheKey: err.cacheKey,
+            },
+          });
+        }
+        
         const message =
           err instanceof Error ? err.message : "AI generation failed";
         return reply.status(400).send({

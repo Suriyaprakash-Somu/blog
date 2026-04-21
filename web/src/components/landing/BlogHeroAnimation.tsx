@@ -1,181 +1,176 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { motion, useAnimation } from "framer-motion";
+import React, { useRef } from "react";
+import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { Shield, Zap, Globe, Cpu, Search } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const cards = [
+    { icon: Globe, label: "Global Presence", color: "text-blue-500", pos: "top-10 left-10", delay: 0 },
+    { icon: Shield, label: "Verified Data", color: "text-emerald-500", pos: "top-40 right-10", delay: 0.2 },
+    { icon: Cpu, label: "Deep Insights", color: "text-purple-500", pos: "bottom-10 left-20", delay: 0.4 },
+    { icon: Search, label: "Precise Research", color: "text-amber-500", pos: "bottom-32 right-12", delay: 0.6 },
+];
 
 export function BlogHeroAnimation() {
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Outer orbit nodes representing news sources
-    const sourceNodes = [
-        { x: 10, y: 30, color: "hsl(var(--primary))", delay: 0, floatDuration: 4.5, floatDelay: 0.2 },
-        { x: 85, y: 15, color: "hsl(var(--accent))", delay: 0.5, floatDuration: 5.2, floatDelay: 0.5 },
-        { x: 90, y: 75, color: "hsl(var(--destructive))", delay: 1, floatDuration: 4.8, floatDelay: 1.2 },
-        { x: 20, y: 85, color: "#10b981", delay: 1.5, floatDuration: 5.5, floatDelay: 0.8 },
-        { x: 5, y: 60, color: "hsl(var(--secondary-foreground))", delay: 2, floatDuration: 4.2, floatDelay: 1.5 },
-    ];
+    // Mouse tracking with springs for smoothness
+    const mouseX = useMotionValue(0);
+    const mouseY = useMotionValue(0);
+
+    const springConfig = { damping: 20, stiffness: 100 };
+    const springX = useSpring(mouseX, springConfig);
+    const springY = useSpring(mouseY, springConfig);
+
+    // Transform mouse coordinates to rotation
+    // Assuming a container size of roughly 500x500
+    const rotateX = useTransform(springY, [-250, 250], [10, -10]);
+    const rotateY = useTransform(springX, [-250, 250], [-10, 10]);
+
+    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        mouseX.set(e.clientX - centerX);
+        mouseY.set(e.clientY - centerY);
+    };
+
+    const handleMouseLeave = () => {
+        mouseX.set(0);
+        mouseY.set(0);
+    };
 
     return (
         <div
             ref={containerRef}
-            className="relative w-full aspect-square max-w-[500px] flex items-center justify-center p-8"
-            aria-hidden="true"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            className="relative w-full h-full flex items-center justify-center [perspective:1200px] cursor-crosshair group/stage"
         >
-            {/* Central Hub representing the Blog/Portal */}
+            {/* 3D Stage Wrap */}
             <motion.div
-                className="relative z-20 w-32 h-32 rounded-3xl border border-border/80 dark:border-border bg-background/90 dark:bg-muted/30 backdrop-blur-xl shadow-2xl flex items-center justify-center overflow-hidden"
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 1, ease: "easeOut" }}
+                style={{ rotateX, rotateY }}
+                className="relative w-full h-full flex items-center justify-center [transform-style:preserve-3d]"
             >
-                <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-accent/20 dark:from-primary/10 dark:to-accent/10" />
-
-                {/* Pulsing inner core */}
+                {/* Central Core */}
                 <motion.div
-                    className="absolute z-10 w-20 h-24 rounded-xl bg-background/80 dark:bg-background/40 flex flex-col items-start justify-center p-3 gap-1.5 shadow-inner border border-border/60"
-                    animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                    className="relative z-20 w-48 h-48 flex items-center justify-center"
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 1 }}
                 >
-                    {Array.from({ length: 10 }).map((_, i) => {
-                        const node = sourceNodes[i % sourceNodes.length];
-                        if (!node) return null;
+                    {/* Inner Glowing Core */}
+                    <div className="absolute inset-0 bg-primary/20 blur-[60px] animate-pulse" />
+                    <motion.div
+                        className="relative w-32 h-32 rounded-full border-4 border-primary/40 bg-background/50 backdrop-blur-3xl flex items-center justify-center shadow-[0_0_50px_rgba(var(--primary),0.3)] overflow-hidden"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 via-transparent to-accent/20" />
+                        <motion.div
+                            animate={{ scale: [1, 1.2, 1], opacity: [0.6, 1, 0.6] }}
+                            transition={{ duration: 3, repeat: Infinity }}
+                        >
+                            <Zap className="size-12 text-primary drop-shadow-[0_0_15px_rgba(var(--primary),1)]" />
+                        </motion.div>
+                    </motion.div>
 
-                        // Add some randomness to the width to look like different length text lines
-                        const widthClass = i % 3 === 0 ? "w-[80%]" : i % 2 === 0 ? "w-[60%]" : "w-full";
-                        return (
-                            <motion.div
-                                key={`hub-line-${i}`}
-                                className={`h-1.5 rounded-full ${widthClass} origin-left mix-blend-normal dark:mix-blend-screen brightness-110`}
-                                style={{ backgroundColor: node.color }}
-                                animate={{
-                                    scaleX: [0.1, 1, 1, 0.1],
-                                    opacity: [0.4, 1, 1, 0]
-                                }}
-                                transition={{
-                                    duration: 3,
-                                    repeat: Infinity,
-                                    delay: node.delay + (i * 0.15), // offset slightly
-                                    ease: "easeInOut"
-                                }}
-                            />
-                        );
-                    })}
+                    {/* Orbital Rings - 3D Tilted */}
+                    {[0, 45, 90, 135].map((angle, i) => (
+                        <motion.div
+                            key={angle}
+                            className="absolute border border-primary/10 rounded-full"
+                            style={{
+                                width: `${320 + i * 45}px`,
+                                height: `${320 + i * 45}px`,
+                                rotateX: 75,
+                                rotateY: angle,
+                            }}
+                            animate={{ rotateZ: 360 }}
+                            transition={{ duration: 18 + i * 6, repeat: Infinity, ease: "linear" }}
+                        />
+                    ))}
                 </motion.div>
 
-                {/* Glowing ring */}
-                <motion.div
-                    className="absolute inset-0 border-2 border-primary/40 dark:border-primary/50 rounded-3xl z-20 mix-blend-normal dark:mix-blend-screen"
-                    animate={{ rotate: 360, scale: [0.95, 1.05, 0.95] }}
-                    transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                />
-            </motion.div>
-
-            {/* Connection Lines from Sources to Center */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 10 }}>
-                <defs>
-                    <filter id="glow">
-                        <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-                        <feMerge>
-                            <feMergeNode in="coloredBlur" />
-                            <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                    </filter>
-                </defs>
-
-                {sourceNodes.map((node, i) => (
-                    <motion.g
-                        key={`connection-${i}`}
-                        animate={{ y: [0, -6, 0] }}
-                        transition={{
-                            duration: node.floatDuration,
-                            repeat: Infinity,
-                            ease: "easeInOut",
-                            delay: node.floatDelay
-                        }}
-                    >
-                        {/* Base line */}
-                        <motion.line
-                            x1={`${node.x}%`}
-                            y1={`${node.y}%`}
-                            x2="50%"
-                            y2="50%"
-                            className="stroke-muted-foreground/30"
-                            strokeWidth="1.5"
-                            strokeDasharray="4 4"
-                            initial={{ pathLength: 0, opacity: 0 }}
-                            animate={{ pathLength: 1, opacity: 1 }}
-                            transition={{ duration: 1.5, delay: 0.5 + Math.random() }}
-                        />
-                        {/* Standard SVG line data packet */}
-                        <motion.circle
-                            cx="50%"
-                            cy="50%"
-                            r="3"
-                            fill={node.color}
-                            filter="url(#glow)"
-                            initial={{ opacity: 0 }}
-                            animate={{
-                                cx: [`${node.x}%`, "50%"],
-                                cy: [`${node.y}%`, "50%"],
-                                opacity: [0, 1, 1, 0],
-                                scale: [0.5, 1.2, 0.5]
-                            }}
-                            transition={{
-                                duration: 3,
-                                repeat: Infinity,
-                                delay: node.delay,
-                                ease: "easeInOut"
-                            }}
-                        />
-                    </motion.g>
-                ))}
-            </svg>
-
-            {/* Floating Source Nodes */}
-            {sourceNodes.map((node, i) => (
-                <motion.div
-                    key={`node-${i}`}
-                    className="absolute z-30 flex items-center gap-2"
-                    style={{
-                        left: `${node.x}%`,
-                        top: `${node.y}%`,
-                    }}
-                    initial={{ scale: 0, opacity: 0, x: "-50%", y: "-50%" }}
-                    animate={{ scale: 1, opacity: 1, x: "-50%", y: "-50%" }}
-                    transition={{ duration: 0.8, delay: 0.2 + i * 0.1, type: "spring" }}
-                >
+                {/* Floating 3D Cards */}
+                {cards.map((card, i) => (
                     <motion.div
-                        className="w-10 h-10 rounded-xl border border-border/80 dark:border-border bg-background/90 dark:bg-muted/50 backdrop-blur-md shadow-lg flex items-center justify-center relative overflow-hidden group"
+                        key={card.label}
+                        className={cn(
+                            "absolute z-30 p-5 rounded-[2rem] border border-white/10 bg-background/40 backdrop-blur-2xl shadow-2xl flex items-center gap-4 transition-colors hover:bg-background/80 hover:border-primary/50 cursor-pointer",
+                            card.pos
+                        )}
+                        initial={{ opacity: 0, z: -100, rotateY: 20 }}
                         animate={{
-                            y: [0, -6, 0],
-                            rotate: [0, 2, -2, 0]
+                            opacity: 1,
+                            z: 0,
+                            rotateY: 0,
+                            y: [0, -20, 0],
+                        }}
+                        whileHover={{
+                            scale: 1.1,
+                            z: 80,
+                            rotateX: 10,
+                            transition: { duration: 0.3 }
                         }}
                         transition={{
-                            duration: node.floatDuration,
-                            repeat: Infinity,
-                            ease: "easeInOut",
-                            delay: node.floatDelay
+                            opacity: { duration: 0.8, delay: card.delay },
+                            z: { duration: 0.8, delay: card.delay },
+                            y: { duration: 5 + i, delay: card.delay, repeat: Infinity, ease: "easeInOut" },
                         }}
                     >
-                        {/* Little article/news lines inside the node */}
-                        <div className="flex flex-col gap-1 w-5">
-                            <div className="h-[2px] rounded-full w-full opacity-60 dark:opacity-80 dark:mix-blend-screen" style={{ backgroundColor: node.color }} />
-                            <div className="h-[2px] rounded-full w-[70%] opacity-40 dark:opacity-60 mix-blend-normal dark:mix-blend-screen bg-foreground dark:bg-white" />
-                            <div className="h-[2px] rounded-full w-[80%] opacity-40 dark:opacity-60 mix-blend-normal dark:mix-blend-screen bg-foreground dark:bg-white" />
+                        <div className={cn("p-3 rounded-2xl bg-white/5 shadow-inner", card.color)}>
+                            <card.icon className="size-7" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">Node 0{i + 1}</span>
+                            <span className="text-lg font-black tracking-tight whitespace-nowrap">{card.label}</span>
                         </div>
 
-                        <div
-                            className="absolute inset-0 opacity-20 group-hover:opacity-40 transition-opacity duration-500"
-                            style={{ background: `radial-gradient(circle at center, ${node.color}, transparent)` }}
-                        />
+                        {/* Glow Effect on Card Hover */}
+                        <div className="absolute inset-0 rounded-[2rem] bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </motion.div>
-                </motion.div>
-            ))}
+                ))}
 
-            {/* Decorative background grid and rings */}
-            <div className="absolute inset-0 border border-border/10 dark:border-border/20 rounded-full scale-[1.2] opacity-20 dark:opacity-40 pointer-events-none" />
-            <div className="absolute inset-0 border border-border/10 dark:border-border/20 rounded-full scale-[0.8] opacity-30 dark:opacity-50 pointer-events-none" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,theme(colors.primary.DEFAULT/0.05)_0%,transparent_70%)] dark:bg-[radial-gradient(circle_at_center,theme(colors.primary.DEFAULT/0.1)_0%,transparent_70%)] pointer-events-none" />
+                {/* Particles Source */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 [transform:translateZ(-50px)]">
+                    {Array.from({ length: 20 }).map((_, i) => (
+                        <motion.circle
+                            key={i}
+                            r="1.5"
+                            fill="hsl(var(--primary))"
+                            initial={{ opacity: 0 }}
+                            animate={{
+                                cx: ["50%", `${Math.random() * 100}%`],
+                                cy: ["50%", `${Math.random() * 100}%`],
+                                opacity: [0, 0.8, 0],
+                                scale: [0, 1.2, 0],
+                            }}
+                            transition={{
+                                duration: 4 + Math.random() * 5,
+                                repeat: Infinity,
+                                delay: Math.random() * 8,
+                                ease: "easeInOut",
+                            }}
+                        />
+                    ))}
+                </svg>
+            </motion.div>
+
+            {/* Scanning Beam */}
+            <motion.div
+                className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-primary/40 to-transparent z-40"
+                animate={{ top: ["0%", "100%", "0%"] }}
+                transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+            />
+
+            {/* Decorative Corner Elements */}
+            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-primary/20" />
+            <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-primary/20" />
+            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-primary/20" />
+            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-primary/20" />
         </div>
     );
 }

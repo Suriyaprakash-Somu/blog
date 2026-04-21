@@ -35,6 +35,7 @@ export const PLATFORM_ROUTES = {
   newsletter: "/api/platform/newsletter",
   automation: "/api/platform/automation",
   prompts: "/api/platform/prompts",
+  llmCache: "/api/platform/llm-cache",
   system: "/api/platform/system",
 } as const;
 

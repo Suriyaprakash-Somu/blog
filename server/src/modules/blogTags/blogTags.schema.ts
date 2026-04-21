@@ -6,6 +6,7 @@ import {
   uniqueIndex,
   uuid,
   varchar,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { uuidv7 } from "uuidv7";
 
@@ -37,6 +38,12 @@ export const blogTags = pgTable(
     metaTitle: varchar("meta_title", { length: 255 }),
     metaDescription: text("meta_description"),
     metaKeywords: text("meta_keywords"),
+
+    // Content Output / Advanced SEO
+    content: text("content"),
+    faq: jsonb("faq")
+      .$type<Array<{ question: string; answer: string }>>()
+      .default([]),
 
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at")

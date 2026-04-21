@@ -40,6 +40,8 @@ export const publicBlogTagsRoutes: FastifyPluginAsync = async (app: FastifyInsta
                 metaKeywords: blogTags.metaKeywords,
                 status: blogTags.status,
                 imageUrl: uploadedFiles.storageKey,
+                content: blogTags.content,
+                faq: blogTags.faq,
             })
             .from(blogTags)
             .leftJoin(uploadedFiles, eq(blogTags.imageFileId, uploadedFiles.id))

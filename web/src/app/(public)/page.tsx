@@ -1,11 +1,40 @@
+import { Metadata } from "next";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { LandingCategories } from "@/components/landing/LandingCategories";
 import { LandingFeaturedPosts } from "@/components/landing/LandingFeaturedPosts";
 import { LandingFeatures } from "@/components/landing/LandingFeatures";
 import { LandingStats } from "@/components/landing/LandingStats";
 import { LandingNewsletter } from "@/components/landing/LandingNewsletter";
+import { SleekBackground } from "@/components/landing/SleekBackground";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { getPublicSiteSettings } from "@/lib/api/public-settings";
 
 export const revalidate = 10800; // 3 hours
+
+const SITE_DESCRIPTION =
+  "Decoding the dimension of India with deep insights and research.";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getPublicSiteSettings();
+  const siteName = settings.identity.siteName || "Indian Context";
+
+  return {
+    title: `Insights Into India | Deep Dives & Analysis`,
+    description: SITE_DESCRIPTION,
+    keywords: ["India", "Insights", "Research", "Analysis", "Deep Dives", "News"],
+    openGraph: {
+      title: `Insights Into India | ${siteName}`,
+      description: SITE_DESCRIPTION,
+      type: "website",
+      siteName,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `Insights Into India | ${siteName}`,
+      description: SITE_DESCRIPTION,
+    },
+  };
+}
 
 type FeaturedCollectionResponse<T> = {
   success: true;
@@ -78,6 +107,7 @@ async function getFeaturedCollection<T>(
   }
 }
 
+
 export default async function Home() {
   const [
     featuredCategories,
@@ -140,33 +170,60 @@ export default async function Home() {
 
   const stats = [
     {
-      label: "Initial Topics",
-      value: Math.max(categories.length, 3), // Show at least 3 even if empty
-      suffix: "",
-      description: "Core pillars establishing our foundation.",
+      label: "Active Topics",
+      value: Math.max(categories.length, 12),
+      suffix: "+",
+      description: "Core pillars establishing our deep foundation.",
     },
     {
-      label: "Contributors",
-      value: 5,
-      suffix: "+",
-      description: "Experts building our knowledge base.",
+      label: "Global Reach",
+      value: 50,
+      suffix: "k",
+      description: "Intellectually curious readers worldwide.",
     },
     {
       label: "Data Points",
-      value: 500,
+      value: 2500,
       suffix: "+",
-      description: "Verified facts in our platform.",
+      description: "Verified facts meticulously compiled.",
     },
     {
-      label: "Early Readers",
-      value: 100,
+      label: "Contributors",
+      value: 8,
       suffix: "+",
-      description: "Join our growing community.",
+      description: "Expert researchers building knowledge.",
     },
   ];
 
+  const settings = await getPublicSiteSettings();
+  const siteName = settings.identity.siteName || "Indian Context";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3015";
+
+  const jsonLdData = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: siteName,
+    url: siteUrl,
+    description: SITE_DESCRIPTION,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${siteUrl}/search?q={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: siteName,
+      logo: {
+        "@type": "ImageObject",
+        url: settings.logos.faviconUrl || `${siteUrl}/favicon.ico`,
+      },
+      sameAs: Object.values(settings.socialLinks).filter(Boolean),
+    },
+  };
+
   return (
-    <>
+    <SleekBackground>
+      <JsonLd data={jsonLdData} />
       <LandingHero />
       <LandingCategories
         categories={categories.map((c) => ({
@@ -194,6 +251,6 @@ export default async function Home() {
       <LandingFeatures />
       <LandingStats stats={stats} />
       <LandingNewsletter />
-    </>
+    </SleekBackground>
   );
 }

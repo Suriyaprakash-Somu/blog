@@ -5,8 +5,8 @@ import { platformSettings } from "../../../db/schema/settings.js";
 import { prompts as promptsTable } from "../../prompts/prompts.schema.js";
 import { eq, desc, inArray, and, isNull } from "drizzle-orm";
 import { fetchRssFeed } from "./rssFetcher.js";
-import { chatCompletion } from "../../settings/llm/completion.js";
-import { buildBlogPostPrompt } from "../../blogPosts/prompts/generate.js";
+import { generateWithCache, LLMGenerationError, chatCompletion } from "../../settings/llm/completion.js";
+import { buildBlogPostPrompt, blogPostGeneratedSchema } from "../../blogPosts/prompts/generate.js";
 import {
     slugify,
     calculateReadTime,
@@ -123,7 +123,7 @@ export class AutomationService {
           )
           .limit(1);
         
-        let TOPIC_SELECTION_PROMPT = rssPromptSetting?.content ? rssPromptSetting.content : [
+        let TOPIC_SELECTION_PROMPT = rssPromptSetting?.systemPrompt ?? [
             "You are a content strategist. Pick the best topic from the feed items below for an India-focused blog post.",
             "",
             "RECENT POSTS (avoid duplicating):",
@@ -227,7 +227,11 @@ export class AutomationService {
             )
           )
           .limit(1);
-        const baseMessages = buildBlogPostPrompt(selectedTitle, blogPromptSetting?.content ? blogPromptSetting.content : null);
+        const baseMessages = buildBlogPostPrompt(
+          selectedTitle,
+          blogPromptSetting?.systemPrompt ?? null,
+          blogPromptSetting?.userPromptTemplate ?? null
+        );
         const sourceMaterial = sourceIndices
             .map((idx: number) => "SOURCE: " + items[idx]?.title + "\nDETAILS: " + items[idx]?.description)
             .join("\n\n");
@@ -237,65 +241,69 @@ export class AutomationService {
 
         console.log("[RSS AUTO] Sending content generation prompt to LLM...");
 
-        const generateResponseRaw = await chatCompletion({
+        try {
+          const result = await generateWithCache({
             messages: baseMessages,
             temperature: 0.7,
             maxTokens: 16000,
             jsonMode: true,
-        });
+            cacheKey: `rss_auto:${selectedTitle}:${Date.now()}`,
+            enableCache: true,
+            module: "blog_post",
+            inputTitle: selectedTitle,
+            schema: blogPostGeneratedSchema,
+          });
 
-        console.log("[RSS AUTO] Content generation response received (" + generateResponseRaw.length + " chars)");
-        console.log("[RSS AUTO] Raw content response (first 1000 chars): " + generateResponseRaw.slice(0, 1000));
+          const generateResponse = result.data;
 
-        const generateResponse = robustJsonParse<any>(generateResponseRaw, {
-            slug: "",
-            metaTitle: "",
-            metaDescription: "",
-            metaKeywords: "",
-            excerpt: "",
-            content: generateResponseRaw,
-        });
+          // FAQ logging
+          console.log("[RSS AUTO] Parsed data keys: " + Object.keys(generateResponse).join(", "));
+          console.log("[RSS AUTO] FAQ items found: " + (generateResponse.faq?.length || 0));
+          if (generateResponse.faq?.length > 0) {
+              console.log("[RSS AUTO] First FAQ: " + JSON.stringify(generateResponse.faq[0]));
+          }
 
-        // FAQ logging
-        console.log("[RSS AUTO] Parsed data keys: " + Object.keys(generateResponse).join(", "));
-        console.log("[RSS AUTO] FAQ items found: " + (generateResponse.faq?.length || 0));
-        if (generateResponse.faq?.length > 0) {
-            console.log("[RSS AUTO] First FAQ: " + JSON.stringify(generateResponse.faq[0]));
+          // Update statuses
+          if (selectedItemIds.length > 0) {
+              await db.update(feedItems)
+                  .set({ processingStatus: "processed" })
+                  .where(inArray(feedItems.id, selectedItemIds));
+              console.log("[RSS AUTO] Marked " + selectedItemIds.length + " feed items as processed.");
+          }
+
+          // 5. Save as Draft
+          const content = generateResponse.content || "";
+          const faq = Array.isArray(generateResponse.faq) ? generateResponse.faq : [];
+          const [insertedPost] = await db.insert(blogPosts).values({
+              title: selectedTitle,
+              slug: generateResponse.slug || slugify(selectedTitle),
+              excerpt: generateResponse.excerpt || "",
+              content: content,
+              metaTitle: generateResponse.metaTitle || selectedTitle,
+              metaDescription: generateResponse.metaDescription || "",
+              metaKeywords: generateResponse.metaKeywords || "",
+              faq: faq,
+              status: "draft",
+              tableOfContents: extractTableOfContents(content),
+              readTimeMinutes: calculateReadTime(content),
+              contentImageFileIds: extractContentImageIds(content),
+              authorType: "platform",
+          }).returning();
+
+          console.log("[RSS AUTO] Draft saved: \"" + insertedPost.title + "\" (" + insertedPost.id + ")");
+
+          return {
+              success: true,
+              data: insertedPost,
+              title: selectedTitle,
+          };
+        } catch (err) {
+          if (err instanceof LLMGenerationError) {
+            console.error("[RSS AUTO] LLM response parsing failed:", err.message);
+            console.error("[RSS AUTO] Cache key:", err.cacheKey);
+            throw new Error(`RSS automation failed: LLM response could not be parsed. Cache key: ${err.cacheKey}`);
+          }
+          throw err;
         }
-
-        // Update statuses
-        if (selectedItemIds.length > 0) {
-            await db.update(feedItems)
-                .set({ processingStatus: "processed" })
-                .where(inArray(feedItems.id, selectedItemIds));
-            console.log("[RSS AUTO] Marked " + selectedItemIds.length + " feed items as processed.");
-        }
-
-        // 5. Save as Draft
-        const content = generateResponse.content || "";
-        const faq = Array.isArray(generateResponse.faq) ? generateResponse.faq : [];
-        const [insertedPost] = await db.insert(blogPosts).values({
-            title: selectedTitle,
-            slug: generateResponse.slug || slugify(selectedTitle),
-            excerpt: generateResponse.excerpt || "",
-            content: content,
-            metaTitle: generateResponse.metaTitle || selectedTitle,
-            metaDescription: generateResponse.metaDescription || "",
-            metaKeywords: generateResponse.metaKeywords || "",
-            faq: faq,
-            status: "draft",
-            tableOfContents: extractTableOfContents(content),
-            readTimeMinutes: calculateReadTime(content),
-            contentImageFileIds: extractContentImageIds(content),
-            authorType: "platform",
-        }).returning();
-
-        console.log("[RSS AUTO] Draft saved: \"" + insertedPost.title + "\" (" + insertedPost.id + ")");
-
-        return {
-            success: true,
-            data: insertedPost,
-            title: selectedTitle,
-        };
     }
 }

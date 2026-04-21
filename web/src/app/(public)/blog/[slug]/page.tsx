@@ -14,6 +14,8 @@ import {
   ClientWidgets,
   SidebarWidgets,
 } from "@/components/blog/ClientWidgets.client";
+import { getPublicSiteSettings } from "@/lib/api/public-settings";
+import { buildOgImageUrl } from "@/lib/utils";
 
 export const revalidate = 10800; // 3 hours
 
@@ -65,12 +67,6 @@ function toKeywords(value: string | null | undefined): string[] | undefined {
   return parts.length > 0 ? parts : undefined;
 }
 
-function asOgImage(url: string | null): string | undefined {
-  if (!url) return undefined;
-  if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  return undefined;
-}
-
 export async function generateMetadata({
   params,
 }: {
@@ -78,6 +74,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPost(slug);
+  const settings = await getPublicSiteSettings();
 
   if (!post) {
     return {
@@ -90,7 +87,7 @@ export async function generateMetadata({
   const description =
     post.metaDescription?.trim() || post.excerpt?.trim() || undefined;
   const keywords = toKeywords(post.metaKeywords);
-  const ogImage = asOgImage(getPublicImageUrl(post.featuredImageUrl) ?? null);
+  const ogImage = buildOgImageUrl(post.featuredImageUrl, settings.logos.lightLogoUrl);
 
   return {
     title,

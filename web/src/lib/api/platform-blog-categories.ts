@@ -29,6 +29,11 @@ export const platformBlogCategoriesApi = {
     endpoint: "/api/platform/blog-categories",
     method: "DELETE" as const,
   },
+  getGenerationTemplates: {
+    key: "platform-blog-categories-generation-templates",
+    endpoint: "/api/platform/blog-categories/generation-templates",
+    method: "GET" as const,
+  },
   generate: {
     key: "platform-blog-categories-generate",
     endpoint: "/api/platform/blog-categories/generate",

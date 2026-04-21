@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { PageShell } from "@/components/layout/PageShell";
-import { CTAManager } from "@/components/banner/CTAManager";
 import { getPublicSiteSettings } from "@/lib/api/public-settings";
+import AboutContent from "./AboutContent";
+import { JsonLd } from "@/components/seo/JsonLd";
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getPublicSiteSettings();
@@ -9,7 +9,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     title: "About",
-    description: `Learn more about ${siteName} — our mission, our team, and our story.`,
+    description: `Learn more about ${siteName} — our mission to decode India's multidimensional identity.`,
     alternates: { canonical: "/about" },
     openGraph: {
       type: "website",
@@ -23,24 +23,31 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AboutPage() {
   const settings = await getPublicSiteSettings();
   const siteName = settings.identity.siteName || "Indian Context";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://indiancontext.com";
+
+  const aboutSchema = {
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    "name": `About ${siteName}`,
+    "description": `Learn about the mission and vision of ${siteName}.`,
+    "publisher": {
+      "@type": "Organization",
+      "name": siteName,
+      "url": siteUrl,
+      "logo": settings.logos.lightLogoUrl || undefined
+    },
+    "mainEntity": {
+      "@type": "Organization",
+      "name": siteName,
+      "description": "A premier knowledge hub decoding the complex dimensions of India.",
+      "knowsAbout": ["Indian History", "Indian Culture", "Indian Sociology", "Indian Economy"]
+    }
+  };
 
   return (
-    <PageShell className="py-12">
-      <CTAManager slot="about-top" className="mb-6" />
-      <div className="mx-auto max-w-2xl space-y-4 text-center">
-        <h1 className="text-4xl font-bold tracking-tight">About {siteName}</h1>
-        <p className="text-muted-foreground text-lg">
-          A modern content platform delivering insightful stories, analysis, and curated collections.
-        </p>
-        <div className="rounded-xl border bg-card p-6 text-card-foreground shadow">
-          <p>
-            {siteName} is built for readers who value depth, context, and clarity.
-            We bring together quality content, expert perspectives, and a seamless
-            reading experience — all in one place.
-          </p>
-        </div>
-      </div>
-      <CTAManager slot="about-bottom" className="mt-6" />
-    </PageShell>
+    <>
+      <JsonLd data={aboutSchema} />
+      <AboutContent siteName={siteName} />
+    </>
   );
 }

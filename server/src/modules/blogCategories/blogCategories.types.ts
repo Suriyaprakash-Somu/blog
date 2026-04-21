@@ -13,6 +13,8 @@ export interface CreateBlogCategoryBody {
   metaTitle?: string;
   metaDescription?: string;
   metaKeywords?: string;
+  content?: string;
+  faq?: Array<{ question: string; answer: string }>;
 }
 
 export type UpdateBlogCategoryBody = Partial<CreateBlogCategoryBody>;

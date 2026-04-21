@@ -12,7 +12,10 @@ import { uploadedFiles } from "../../uploads/uploadedFiles.schema.js";
 import { blogPosts } from "../blogPosts.schema.js";
 import { blogPostTags } from "../blogPostTags.schema.js";
 import { blogPostSecondaryCategories } from "../blogPostSecondaryCategories.schema.js";
-import { chatCompletion } from "../../settings/llm/completion.js";
+import {
+  generateWithCache,
+  LLMGenerationError,
+} from "../../settings/llm/completion.js";
 import {
   buildBlogPostPrompt,
   blogPostGeneratedSchema,
@@ -411,6 +414,7 @@ const crudRoutes = createCrudRoutes({
 
 const generateBodySchema = z.object({
   title: z.string().min(1, "Post title is required"),
+  additionalInstructions: z.string().optional().nullable(),
 });
 
 const blogPostsGenerateRoute: FastifyPluginAsync = async (fastify) => {
@@ -424,139 +428,59 @@ const blogPostsGenerateRoute: FastifyPluginAsync = async (fastify) => {
       config: { rateLimit: rateLimitConfig.user },
     },
     async (request, reply) => {
-      const { title } = generateBodySchema.parse(request.body);
-      try {
-        console.log(`[GENERATION] Starting AI blog post generation for title: "${title}"`);
-        request.log.info({ title }, "Starting AI blog post generation");
-        
-        const [promptSetting] = await db
-          .select()
-          .from(promptsTable)
-          .where(
-            and(
-              eq(promptsTable.module, "prompt_blog_post"),
-              eq(promptsTable.isActive, true),
-              isNull(promptsTable.deletedAt)
-            )
+      const { title, additionalInstructions } = generateBodySchema.parse(request.body);
+      console.log(`[GENERATION] Starting AI blog post generation for title: "${title}"`);
+      request.log.info({ title }, "Starting AI blog post generation");
+      
+      const [promptSetting] = await db
+        .select()
+        .from(promptsTable)
+        .where(
+          and(
+            eq(promptsTable.module, "prompt_blog_post"),
+            eq(promptsTable.isActive, true),
+            isNull(promptsTable.deletedAt)
           )
-          .limit(1);
-        const customPrompt = promptSetting?.content ? promptSetting.content : null;
+        )
+        .limit(1);
 
-        const messages = buildBlogPostPrompt(title, customPrompt);
+      const messages = buildBlogPostPrompt(
+        title,
+        promptSetting?.systemPrompt ?? null,
+        promptSetting?.userPromptTemplate ?? null,
+        additionalInstructions ?? null
+      );
 
-        console.log(`[GENERATION] Sending request to LLM (chatCompletion)...`);
-        request.log.info("Sending request to LLM...");
-        const rawText = await chatCompletion({
+      try {
+        const result = await generateWithCache({
           messages,
           temperature: 0.7,
           maxTokens: 16000,
           jsonMode: true,
+          cacheKey: `blog_post:${title}:${Date.now()}`,
+          enableCache: true,
+          module: "blog_post",
+          inputTitle: title,
+          additionalInstructions: additionalInstructions ?? null,
+          schema: blogPostGeneratedSchema,
         });
-
-        console.log(`[GENERATION] Raw text received. Length:`, rawText.length);
-
-        let text = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-        const firstBrace = text.indexOf('{');
-        const lastBrace = text.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-          text = text.substring(firstBrace, lastBrace + 1);
-        }
-
-        let parsedData: any = null;
-        try {
-          parsedData = JSON.parse(text);
-          console.log(`[GENERATION] Strict JSON parse successful.`);
-        } catch (e) {
-          console.warn(`[GENERATION] Strict JSON parsing failed. Attempting regex fallback...`);
-
-          const extractField = (fieldName: string) => {
-            const regex = new RegExp(`"${fieldName}"\\s*:\\s*"((?:[^"\\\\]|\\\\[\\s\\S])*)(?:"|$)`, 'i');
-            const match = text.match(regex);
-            if (match && match[1]) {
-              return match[1]
-                .replace(/\\"/g, '"')
-                .replace(/\\n/g, '\n')
-                .replace(/\\t/g, '\t')
-                .replace(/\\\\/g, '\\');
-            }
-            return "";
-          };
-
-          const extractFaqList = () => {
-            try {
-              // Grab everything from "faq": [ ... up to the end of the text
-              const faqMatch = text.match(/"faq"\s*:\s*(\[\s*\{[\s\S]*)/i);
-              if (faqMatch && faqMatch[1]) {
-                let faqStr = faqMatch[1];
-                // Try to close JSON cleanly if truncated
-                let bracketsCount = (faqStr.match(/\{/g) || []).length;
-                let closingBracketsCount = (faqStr.match(/\}/g) || []).length;
-
-                // If not balanced, try terminating gracefully
-                if (bracketsCount > closingBracketsCount) {
-                  faqStr = faqStr.substring(0, faqStr.lastIndexOf('}'));
-                  faqStr += "}]";
-                }
-
-                // Strip trailing comma before list closure if any
-                faqStr = faqStr.replace(/,\s*\]/, ']');
-
-                try {
-                  const parsed = JSON.parse(faqStr);
-                  if (Array.isArray(parsed)) return parsed;
-                } catch (fallbackParseErr) {
-                  // If still malformed, just string match question/answer explicitly
-                  const arr: any[] = [];
-                  const qRegex = /"question"\s*:\s*"((?:[^"\\\\]|\\\\[\\s\\S])*)"\s*,\s*"answer"\s*:\s*"((?:[^"\\\\]|\\\\[\\s\\S])*)"/gi;
-                  let qMatch;
-                  while ((qMatch = qRegex.exec(faqStr)) !== null) {
-                    arr.push({
-                      question: qMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n'),
-                      answer: qMatch[2].replace(/\\"/g, '"').replace(/\\n/g, '\n')
-                    });
-                  }
-                  return arr;
-                }
-              }
-            } catch (ignore) { }
-            return [];
-          };
-
-          const extractedData = {
-            slug: extractField("slug"),
-            metaTitle: extractField("metaTitle"),
-            metaDescription: extractField("metaDescription"),
-            metaKeywords: extractField("metaKeywords"),
-            excerpt: extractField("excerpt"),
-            content: extractField("content"),
-            faq: extractFaqList()
-          };
-
-          if (extractedData.content || extractedData.metaTitle) {
-            console.log(`[GENERATION] Regex fallback extracted content!`);
-            parsedData = extractedData;
-          } else {
-            console.log(`[GENERATION] Ultimate fallback: returning raw text as content.`);
-            parsedData = {
-              slug: "",
-              metaTitle: "",
-              metaDescription: "",
-              metaKeywords: "",
-              excerpt: "",
-              content: text,
-              faq: []
-            };
-          }
-        }
-
-        console.log(`[GENERATION] Schema validation running...`);
-        request.log.info("Validating schema...");
-        const validated = blogPostGeneratedSchema.parse(parsedData);
 
         console.log(`[GENERATION] Schema validation successful.`);
         request.log.info("AI generation successful");
-        return { success: true, data: validated };
+        return { success: true, data: result.data };
       } catch (err) {
+        if (err instanceof LLMGenerationError) {
+          console.error(`[GENERATION ERROR] Parsing failed:`, err.message);
+          request.log.error({ cacheKey: err.cacheKey }, "LLM response parsing failed");
+          return reply.status(400).send({
+            success: false,
+            error: { 
+              message: "LLM response could not be parsed",
+              cacheKey: err.cacheKey,
+            },
+          });
+        }
+        
         console.error(`[GENERATION ERROR] Request failed:`, err);
         request.log.error({ err }, "AI generation failed");
         const message =
