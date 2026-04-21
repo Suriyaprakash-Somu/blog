@@ -49,6 +49,9 @@ import {
   Download,
   AlertTriangle,
   Upload,
+  Copy,
+  ExternalLink,
+  Bot,
 } from "lucide-react";
 import {
   Select,
@@ -90,6 +93,28 @@ interface ProviderConfig {
 interface LlmConfig {
   activeProvider: string;
   providers: Record<string, ProviderConfig>;
+}
+
+interface TelegramAutomationConfig {
+  botToken?: string;
+  allowedChatId?: string;
+  webhookSecret?: string;
+}
+
+function getApiBaseUrl() {
+  // Prefer the API base URL (web and server can be on different origins in dev).
+  const envBase = process.env.NEXT_PUBLIC_SERVER_URL;
+  if (envBase) return envBase.replace(/\/+$/, "");
+
+  if (typeof window === "undefined") return "";
+  return window.location.origin.replace(/\/+$/, "");
+}
+
+function getWebhookUrl(secret?: string) {
+  const base = getApiBaseUrl();
+  return secret
+    ? `${base}/api/public/automation/telegram/webhook/${encodeURIComponent(secret)}`
+    : `${base}/api/public/automation/telegram/webhook/:secret`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -180,10 +205,14 @@ export default function PlatformSettingsPage() {
           {/* ── Integrations ───────────────────────────────────── */}
           <TabsContent value="integrations">
             <IntegrationsSection
-              initialValue={getSettingValue<LlmConfig>("llm_config", {
+              llmInitialValue={getSettingValue<LlmConfig>("llm_config", {
                 activeProvider: "",
                 providers: {},
               })}
+              telegramInitialValue={getSettingValue<TelegramAutomationConfig>(
+                "telegram_automation",
+                {},
+              )}
               onSaved={load}
             />
           </TabsContent>
@@ -531,13 +560,16 @@ function SocialMediaSection({
 /* ================================================================== */
 
 function IntegrationsSection({
-  initialValue,
+  llmInitialValue,
+  telegramInitialValue,
   onSaved,
 }: {
-  initialValue: LlmConfig;
+  llmInitialValue: LlmConfig;
+  telegramInitialValue: TelegramAutomationConfig;
   onSaved: () => void;
 }) {
-  const [config, setConfig] = useState<LlmConfig>(initialValue);
+  const [config, setConfig] = useState<LlmConfig>(llmInitialValue);
+  const [telegramConfig, setTelegramConfig] = useState<TelegramAutomationConfig>(telegramInitialValue);
   const [providers, setProviders] = useState<LlmProviderMeta[]>([]);
   const [modelsByProvider, setModelsByProvider] = useState<
     Record<string, LlmModel[]>
@@ -620,11 +652,18 @@ function IntegrationsSection({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updatePlatformSetting("llm_config", {
-        value: config,
-        isPublic: false,
-        description: "LLM provider configurations",
-      });
+      await Promise.all([
+        updatePlatformSetting("llm_config", {
+          value: config,
+          isPublic: false,
+          description: "LLM provider configurations",
+        }),
+        updatePlatformSetting("telegram_automation", {
+          value: telegramConfig,
+          isPublic: false,
+          description: "Telegram bot configuration for RSS topic review automation",
+        }),
+      ]);
       toast.success("Integration settings saved");
       onSaved();
     } catch {
@@ -651,6 +690,107 @@ function IntegrationsSection({
           then click &ldquo;Fetch Models&rdquo; to load available models.
         </p>
       </div>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-base">Telegram Automation</CardTitle>
+          <CardDescription>
+            Configure the Telegram bot used for RSS topic review and draft generation approval.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {/* Setup Instructions */}
+            <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Bot className="h-5 w-5 text-primary" />
+                <h4 className="text-sm font-medium">Setup Instructions</h4>
+              </div>
+              <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+                <li>Create a bot via <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1 inline">BotFather <ExternalLink className="h-3 w-3" /></a></li>
+                <li>Copy the bot token and paste it below</li>
+                <li>Start a chat with your bot (send /start)</li>
+                <li>Save the token and chat ID below - the webhook will auto-detect if chat ID is empty</li>
+                <li>Set the webhook URL using Telegram Bot API setWebhook with the URL shown below</li>
+              </ol>
+            </div>
+
+            <div className="grid gap-4">
+              <div className="grid gap-1.5">
+                <Label htmlFor="telegram-bot-token" className="text-xs font-medium">
+                  Bot Token
+                </Label>
+                <Input
+                  id="telegram-bot-token"
+                  type="password"
+                  placeholder="Telegram bot token from BotFather"
+                  value={telegramConfig.botToken ?? ""}
+                  onChange={(e) =>
+                    setTelegramConfig((prev) => ({ ...prev, botToken: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="telegram-allowed-chat-id" className="text-xs font-medium">
+                  Allowed Chat ID
+                </Label>
+                <Input
+                  id="telegram-allowed-chat-id"
+                  placeholder="Your Telegram personal chat id"
+                  value={telegramConfig.allowedChatId ?? ""}
+                  onChange={(e) =>
+                    setTelegramConfig((prev) => ({ ...prev, allowedChatId: e.target.value }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Start the bot once. If this is empty, the webhook will reply with your chat id so you can save it here.
+                </p>
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="telegram-webhook-secret" className="text-xs font-medium">
+                  Webhook Secret
+                </Label>
+                <Input
+                  id="telegram-webhook-secret"
+                  type="password"
+                  placeholder="Secret used in the Telegram webhook URL"
+                  value={telegramConfig.webhookSecret ?? ""}
+                  onChange={(e) =>
+                    setTelegramConfig((prev) => ({ ...prev, webhookSecret: e.target.value }))
+                  }
+                />
+              </div>
+
+              {/* Webhook URL Display */}
+              {telegramConfig.webhookSecret && (
+                <div className="grid gap-1.5 pt-2">
+                  <Label className="text-xs font-medium">Webhook URL</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      readOnly
+                      value={getWebhookUrl(telegramConfig.webhookSecret)}
+                      className="font-mono text-xs"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(getWebhookUrl(telegramConfig.webhookSecret));
+                        toast.success("Webhook URL copied");
+                      }}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Use this URL with Telegram's Bot API <code className="bg-muted px-1 py-0.5 rounded">setWebhook</code> method. Make sure it is a public HTTPS URL (it uses `NEXT_PUBLIC_SERVER_URL`).
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4">
         {providers.map((provider) => {
@@ -949,4 +1089,3 @@ function MaintenanceSection() {
     </div>
   );
 }
-

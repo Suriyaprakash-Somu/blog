@@ -92,6 +92,7 @@ const envSchema = z.object({
   RATE_LIMIT_UPLOAD_WINDOW: z.string().optional(),
   RATE_LIMIT_PLATFORM_MAX: z.string().optional(),
   RATE_LIMIT_PLATFORM_WINDOW: z.string().optional(),
+
 });
 
 type EnvInput = z.infer<typeof envSchema>;

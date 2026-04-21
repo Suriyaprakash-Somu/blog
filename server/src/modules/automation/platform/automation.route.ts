@@ -1,7 +1,10 @@
 import { z } from "zod";
 import type { FastifyPluginAsync } from "fastify";
 import { db } from "../../../db/index.js";
-import { rssSources } from "../automation.schema.js";
+import { rssSources, automationTopicSessions, automationTopicCandidates } from "../automation.schema.js";
+import { blogCategories } from "../../blogCategories/blogCategories.schema.js";
+import { blogTags } from "../../blogTags/blogTags.schema.js";
+import { blogPosts } from "../../blogPosts/blogPosts.schema.js";
 import { AutomationService } from "../services/automation.service.js";
 import { createCrudRoutes } from "../../../core/crudFactory.js";
 import { rateLimitConfig } from "../../../core/rateLimit.js";
@@ -9,6 +12,7 @@ import { CRUD_ACCESS } from "../../../access/crudAccess.js";
 import { requirePlatformAuth } from "../../../middlewares/auth.guard.js";
 import { platformAbilityGuard } from "../../../middlewares/ability.guard.js";
 import { ACTIONS, SUBJECTS } from "../../rbac/public/permissions.js";
+import { desc, eq, and, inArray } from "drizzle-orm";
 
 const { insertSchema, updateSchema } = {
     insertSchema: z.object({
@@ -72,6 +76,30 @@ export const automationRoutes: FastifyPluginAsync = async (fastify) => {
         }
     );
 
+    // Manual Trigger: Sync RSS and send Telegram topic shortlist
+    fastify.post(
+        "/sync-and-notify",
+        {
+            preHandler: [
+                requirePlatformAuth(),
+                platformAbilityGuard(ACTIONS.UPDATE, SUBJECTS.PLATFORM_SETTINGS),
+            ],
+            config: { rateLimit: rateLimitConfig.user },
+        },
+        async (request, reply) => {
+            try {
+                const result = await AutomationService.syncAndNotifyTelegram(10);
+                return result;
+            } catch (err) {
+                request.log.error(err);
+                return reply.status(500).send({
+                    success: false,
+                    error: { message: err instanceof Error ? err.message : "Sync and notify failed" },
+                });
+            }
+        }
+    );
+
     // Manual Trigger: Generate Draft from RSS
     fastify.post(
         "/generate",
@@ -101,6 +129,246 @@ export const automationRoutes: FastifyPluginAsync = async (fastify) => {
                 return reply.status(500).send({
                     success: false,
                     error: { message: err instanceof Error ? err.message : "Generation failed" }
+                });
+            }
+        }
+    );
+
+    // Get automation sessions with pagination and filtering
+    fastify.get(
+        "/sessions",
+        {
+            preHandler: [
+                requirePlatformAuth(),
+                platformAbilityGuard(ACTIONS.READ, SUBJECTS.PLATFORM_SETTINGS),
+            ],
+            config: { rateLimit: rateLimitConfig.user },
+        },
+        async (request, reply) => {
+            try {
+                const querySchema = z.object({
+                    page: z.coerce.number().int().min(0).default(0),
+                    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+                    status: z
+                        .enum([
+                            "pending",
+                            "selected",
+                            "generated",
+                            "categorizing",
+                            "tagging",
+                            "completed",
+                            "failed",
+                            "expired",
+                            "cancelled",
+                        ])
+                        .optional(),
+                });
+
+                const query = querySchema.parse(request.query);
+
+                const safePage = query.page;
+                const safePageSize = query.pageSize;
+
+                const whereConditions = query.status
+                    ? eq(automationTopicSessions.status, query.status)
+                    : undefined;
+
+                const sessions = await db
+                    .select({
+                        id: automationTopicSessions.id,
+                        status: automationTopicSessions.status,
+                        workflowStep: automationTopicSessions.workflowStep,
+                        telegramChatId: automationTopicSessions.telegramChatId,
+                        telegramMessageId: automationTopicSessions.telegramMessageId,
+                        selectedCandidateRank: automationTopicSessions.selectedCandidateRank,
+                        generatedPostId: automationTopicSessions.generatedPostId,
+                        assignedCategoryId: automationTopicSessions.assignedCategoryId,
+                        assignedSecondaryCategoryId: automationTopicSessions.assignedSecondaryCategoryId,
+                        selectedTagIds: automationTopicSessions.selectedTagIds,
+                        errorMessage: automationTopicSessions.errorMessage,
+                        expiresAt: automationTopicSessions.expiresAt,
+                        createdAt: automationTopicSessions.createdAt,
+                        updatedAt: automationTopicSessions.updatedAt,
+                    })
+                    .from(automationTopicSessions)
+                    .where(whereConditions)
+                    .orderBy(desc(automationTopicSessions.createdAt))
+                    .limit(safePageSize)
+                    .offset(safePage * safePageSize);
+
+                // Enrich with candidate, post, category, and tags data
+                const enrichedSessions = await Promise.all(
+                    sessions.map(async (session) => {
+                        const [candidate] = session.selectedCandidateRank !== null
+                            ? await db
+                                .select({
+                                    title: automationTopicCandidates.title,
+                                    description: automationTopicCandidates.description,
+                                    sourceUrl: automationTopicCandidates.sourceUrl,
+                                })
+                                .from(automationTopicCandidates)
+                                .where(
+                                    and(
+                                        eq(automationTopicCandidates.sessionId, session.id),
+                                        eq(automationTopicCandidates.rank, session.selectedCandidateRank!),
+                                    )
+                                )
+                                .limit(1)
+                            : [];
+
+                        const [post] = session.generatedPostId
+                            ? await db
+                                .select({
+                                    id: blogPosts.id,
+                                    title: blogPosts.title,
+                                    slug: blogPosts.slug,
+                                    status: blogPosts.status,
+                                })
+                                .from(blogPosts)
+                                .where(eq(blogPosts.id, session.generatedPostId!))
+                                .limit(1)
+                            : [];
+
+                        const [category] = session.assignedCategoryId
+                            ? await db
+                                .select({
+                                    id: blogCategories.id,
+                                    name: blogCategories.name,
+                                })
+                                .from(blogCategories)
+                                .where(eq(blogCategories.id, session.assignedCategoryId!))
+                                .limit(1)
+                            : [];
+
+                        const [secondaryCategory] = session.assignedSecondaryCategoryId
+                            ? await db
+                                .select({
+                                    id: blogCategories.id,
+                                    name: blogCategories.name,
+                                })
+                                .from(blogCategories)
+                                .where(eq(blogCategories.id, session.assignedSecondaryCategoryId!))
+                                .limit(1)
+                            : [];
+
+                        const tags = session.selectedTagIds && session.selectedTagIds.length > 0
+                            ? await db
+                                .select({
+                                    id: blogTags.id,
+                                    name: blogTags.name,
+                                })
+                                .from(blogTags)
+                                .where(inArray(blogTags.id, session.selectedTagIds))
+                            : [];
+
+                        return {
+                            ...session,
+                            candidate: candidate || null,
+                            post: post || null,
+                            category: category || null,
+                            secondaryCategory: secondaryCategory || null,
+                            tags: tags || [],
+                        };
+                    })
+                );
+
+                const total = sessions.length;
+
+                return reply.send({ sessions: enrichedSessions, total });
+            } catch (err) {
+                request.log.error(err);
+                return reply.status(500).send({
+                    success: false,
+                    error: { message: err instanceof Error ? err.message : "Failed to fetch sessions" },
+                });
+            }
+        }
+    );
+
+    // Expire old pending sessions
+    fastify.post(
+        "/sessions/expire",
+        {
+            preHandler: [
+                requirePlatformAuth(),
+                platformAbilityGuard(ACTIONS.UPDATE, SUBJECTS.PLATFORM_SETTINGS),
+            ],
+            config: { rateLimit: rateLimitConfig.user },
+        },
+        async (request, reply) => {
+            try {
+                await AutomationService.expireOldSessions();
+                return { success: true, message: "Old sessions expired" };
+            } catch (err) {
+                request.log.error(err);
+                return reply.status(500).send({
+                    success: false,
+                    error: { message: err instanceof Error ? err.message : "Failed to expire sessions" },
+                });
+            }
+        }
+    );
+
+    // Publish or keep draft action after Telegram assignment
+    fastify.post(
+        "/sessions/:sessionId/publish",
+        {
+            preHandler: [
+                requirePlatformAuth(),
+                platformAbilityGuard(ACTIONS.UPDATE, SUBJECTS.BLOG_POST),
+            ],
+            config: { rateLimit: rateLimitConfig.user },
+        },
+        async (request, reply) => {
+            try {
+                const { sessionId } = request.params as { sessionId: string };
+                const body = request.body as { action?: "publish" | "keep_draft" };
+                const action = body.action || "keep_draft";
+
+                const [session] = await db
+                    .select({ generatedPostId: automationTopicSessions.generatedPostId })
+                    .from(automationTopicSessions)
+                    .where(eq(automationTopicSessions.id, sessionId))
+                    .limit(1);
+
+                if (!session || !session.generatedPostId) {
+                    return reply.status(404).send({
+                        success: false,
+                        error: { message: "Session or draft not found" },
+                    });
+                }
+
+                if (action === "publish") {
+                    await db
+                        .update(blogPosts)
+                        .set({
+                            status: "published",
+                            publishedAt: new Date(),
+                            updatedAt: new Date(),
+                        })
+                        .where(eq(blogPosts.id, session.generatedPostId));
+                }
+
+                await db
+                    .update(automationTopicSessions)
+                    .set({
+                        status: "completed",
+                        workflowStep: "completed",
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(automationTopicSessions.id, sessionId));
+
+                return {
+                    success: true,
+                    postId: session.generatedPostId,
+                    status: action === "publish" ? "published" : "draft",
+                    message: action === "publish" ? "Post published successfully" : "Draft saved",
+                };
+            } catch (err) {
+                request.log.error(err);
+                return reply.status(500).send({
+                    success: false,
+                    error: { message: err instanceof Error ? err.message : "Failed to update post status" },
                 });
             }
         }

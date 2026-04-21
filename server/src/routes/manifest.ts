@@ -19,6 +19,7 @@ export const PUBLIC_ROUTES = {
   featured: "/api/public/featured",
   newsletter: "/api/public/newsletter",
   seo: "/api/public/seo",
+  automation: "/api/public/automation",
 } as const;
 
 export const PLATFORM_ROUTES = {
