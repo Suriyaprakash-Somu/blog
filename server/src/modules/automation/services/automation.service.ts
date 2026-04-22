@@ -2112,6 +2112,7 @@ export class AutomationService {
               "/blog",
               "/sitemap.xml",
               "/rss.xml",
+              "/llms.txt",
               detail?.slug ? `/blog/${detail.slug}` : null,
               detail?.categorySlug ? `/categories/${detail.categorySlug}` : null,
               ...secondaryCategories.map((c) => (c.slug ? `/categories/${c.slug}` : null)),

@@ -18,7 +18,18 @@ export default function robots(): MetadataRoute.Robots {
             },
             {
                 userAgent: ["GPTBot", "Claude-bot", "PerplexityBot", "CCBot"],
-                allow: ["/", "/llms.txt"],
+                allow: [
+                    "/",
+                    "/llms.txt",
+                    "/sitemap.xml",
+                    "/rss.xml",
+                    "/blog",
+                    "/blog/",
+                    "/categories",
+                    "/categories/",
+                    "/tags",
+                    "/tags/",
+                ],
             }
         ],
         sitemap: [`${BASE_URL}/sitemap.xml`],

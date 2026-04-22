@@ -193,7 +193,15 @@ export function BlogTagForm({
     try {
       await mutation.mutateAsync(values as TagFormData & { id?: string });
 
-      const paths = ["/", "/tags", `/tags/${values.slug}`, "/blog"];
+      const paths = [
+        "/",
+        "/tags",
+        `/tags/${values.slug}`,
+        "/blog",
+        "/rss.xml",
+        "/sitemap.xml",
+        "/llms.txt",
+      ];
       if (isEdit && data?.slug && data.slug !== values.slug) {
         paths.push(`/tags/${data.slug}`);
       }

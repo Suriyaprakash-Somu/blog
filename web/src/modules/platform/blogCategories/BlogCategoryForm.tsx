@@ -198,7 +198,15 @@ export function BlogCategoryForm({
     try {
       await mutation.mutateAsync(values as CategoryFormData & { id?: string });
 
-      const paths = ["/", "/categories", `/categories/${values.slug}`, "/blog"];
+      const paths = [
+        "/",
+        "/categories",
+        `/categories/${values.slug}`,
+        "/blog",
+        "/rss.xml",
+        "/sitemap.xml",
+        "/llms.txt",
+      ];
       if (isEdit && data?.slug && data.slug !== values.slug) {
         paths.push(`/categories/${data.slug}`);
       }

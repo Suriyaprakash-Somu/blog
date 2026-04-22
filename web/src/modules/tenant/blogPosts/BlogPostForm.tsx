@@ -123,11 +123,13 @@ export function BlogPostForm({
   const formRef = useRef<FormInstance>(null);
   const isEdit = Boolean(data);
 
-  const { data: categoriesData } = useApiQuery<{ id: string; name: string }[]>({
+  const { data: categoriesData } = useApiQuery<
+    { id: string; name: string; slug: string }[]
+  >({
     ...platformBlogCategoriesApi.options,
     requireOrganization: false,
   });
-  const { data: tagsData } = useApiQuery<{ id: string; name: string }[]>({
+  const { data: tagsData } = useApiQuery<{ id: string; name: string; slug: string }[]>({
     ...platformBlogTagsApi.options,
     requireOrganization: false,
   });
@@ -141,6 +143,14 @@ export function BlogPostForm({
     () => tagsData?.map((t) => ({ label: t.name, value: t.id })) || [],
     [tagsData],
   );
+
+  const categorySlugById = useMemo(() => {
+    return new Map((categoriesData ?? []).map((c) => [c.id, c.slug] as const));
+  }, [categoriesData]);
+
+  const tagSlugById = useMemo(() => {
+    return new Map((tagsData ?? []).map((t) => [t.id, t.slug] as const));
+  }, [tagsData]);
 
   const schema = useMemo(() => {
     return baseSchema.extend({
@@ -195,7 +205,38 @@ export function BlogPostForm({
       await mutation.mutateAsync(values as PostFormData & { id?: string });
 
       // Also revalidate detail pages that depend on slug.
-      const paths = ["/", "/blog", "/categories", "/tags", "/rss.xml", "/sitemap.xml", `/blog/${values.slug}`];
+      const paths = [
+        "/",
+        "/blog",
+        "/categories",
+        "/tags",
+        "/rss.xml",
+        "/sitemap.xml",
+        "/llms.txt",
+        `/blog/${values.slug}`,
+      ];
+
+      // Revalidate affected hub pages (category/tag) so edits show up immediately.
+      const categoryIds = new Set<string>();
+      if (values.categoryId) categoryIds.add(String(values.categoryId));
+      for (const id of values.secondaryCategoryIds ?? []) categoryIds.add(String(id));
+      if (isEdit && data?.categoryId) categoryIds.add(String(data.categoryId));
+      for (const id of (isEdit ? (data?.secondaryCategoryIds ?? []) : [])) {
+        categoryIds.add(String(id));
+      }
+      for (const id of categoryIds) {
+        const slug = categorySlugById.get(id);
+        if (slug) paths.push(`/categories/${slug}`);
+      }
+
+      const tagIds = new Set<string>();
+      for (const id of values.tagIds ?? []) tagIds.add(String(id));
+      for (const id of (isEdit ? (data?.tagIds ?? []) : [])) tagIds.add(String(id));
+      for (const id of tagIds) {
+        const slug = tagSlugById.get(id);
+        if (slug) paths.push(`/tags/${slug}`);
+      }
+
       if (isEdit && data?.slug && data.slug !== values.slug) {
         paths.push(`/blog/${data.slug}`);
       }
