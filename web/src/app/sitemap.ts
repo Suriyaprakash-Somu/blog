@@ -74,7 +74,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
         return entries;
     } catch (error) {
-        console.error("Sitemap generation error:", error);
+        if (process.env.NODE_ENV === "development") {
+            console.error("Sitemap generation error:", error);
+        }
         // Fallback to static pages only
         return STATIC_PAGES.map((p) => ({
             url: `${BASE_URL}${p.path}`,

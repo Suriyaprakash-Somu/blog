@@ -5,6 +5,9 @@ const API_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3020";
 
 export const revalidate = 43200; // 12 hours
 
+// Avoid any build-time attempts to precompute this route.
+export const dynamic = "force-dynamic";
+
 function escapeXml(unsafe: string) {
     return unsafe.replace(/[<>&'"]/g, (c) => {
         switch (c) {
@@ -75,7 +78,9 @@ export async function GET() {
             },
         });
     } catch (error) {
-        console.error("RSS generation error:", error);
+        if (process.env.NODE_ENV === "development") {
+            console.error("RSS generation error:", error);
+        }
         return new NextResponse("Internal Server Error", { status: 500 });
     }
 }

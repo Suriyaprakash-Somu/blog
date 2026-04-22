@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const revalidate = 43200; // 12 hours
 
+// Avoid any build-time attempts to precompute this route.
+export const dynamic = "force-dynamic";
+
 const BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://indiancontext.com").replace(/\/+$/, "");
 const API_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3020";
 
@@ -119,7 +122,9 @@ export async function GET(request: NextRequest) {
             },
         });
     } catch (error) {
-        console.error("Error generating llms.txt:", error);
+        if (process.env.NODE_ENV === "development") {
+            console.error("Error generating llms.txt:", error);
+        }
         return new NextResponse("Error generating knowledge index.", { status: 500 });
     }
 }
