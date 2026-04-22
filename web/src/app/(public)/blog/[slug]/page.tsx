@@ -30,6 +30,7 @@ type PublicPostDetail = {
   tags: { id: string; name: string; slug: string }[];
   secondaryCategories: { id: string; name: string; slug: string }[];
   tableOfContents: { id: string; text: string; level: number }[] | null;
+  updatedAt: string | null;
   publishedAt: string | null;
   readTimeMinutes: number;
   featuredImageUrl: string | null;
@@ -90,7 +91,11 @@ export async function generateMetadata({
   const description =
     post.metaDescription?.trim() || post.excerpt?.trim() || undefined;
   const keywords = toKeywords(post.metaKeywords);
-  const ogImage = buildOgImageUrl(post.featuredImageUrl, settings.logos.lightLogoUrl);
+  const ogImage = buildOgImageUrl(
+    getPublicImageUrl(post.featuredImageUrl),
+    settings.logos.lightLogoUrl,
+  );
+  const modifiedTime = post.updatedAt ?? post.publishedAt ?? undefined;
 
   return {
     title,
@@ -103,6 +108,7 @@ export async function generateMetadata({
       description,
       url: `/blog/${post.slug}`,
       publishedTime: post.publishedAt ?? undefined,
+      modifiedTime,
       images: ogImage ? [{ url: ogImage }] : undefined,
     },
     twitter: {
@@ -124,6 +130,17 @@ export default async function BlogPostPage({
 
   if (!post) notFound();
 
+  const settings = await getPublicSiteSettings();
+  const siteName = settings.identity.siteName || "Indian Context";
+  const ogImage = buildOgImageUrl(
+    getPublicImageUrl(post.featuredImageUrl),
+    settings.logos.lightLogoUrl,
+  );
+  const published = post.publishedAt ? new Date(post.publishedAt).toISOString() : undefined;
+  const modified = (post.updatedAt || post.publishedAt)
+    ? new Date(String(post.updatedAt || post.publishedAt)).toISOString()
+    : undefined;
+
 
   const breadcrumbs = breadcrumbList([
     { name: "Home", url: absoluteUrl("/") },
@@ -133,9 +150,44 @@ export default async function BlogPostPage({
 
   const faqSchema = post.faq && post.faq.length > 0 ? faqPage(post.faq) : null;
 
+  const blogPostingSchema = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": absoluteUrl(`/blog/${post.slug}`),
+    },
+    headline: post.metaTitle?.trim() || post.title,
+    description: post.metaDescription?.trim() || post.excerpt?.trim() || undefined,
+    image: ogImage ? [ogImage] : undefined,
+    datePublished: published,
+    dateModified: modified,
+    author: post.authorName
+      ? {
+          "@type": "Person",
+          name: post.authorName,
+        }
+      : undefined,
+    publisher: {
+      "@type": "Organization",
+      name: siteName,
+      logo: settings.logos.lightLogoUrl
+        ? {
+            "@type": "ImageObject",
+            url: settings.logos.lightLogoUrl,
+          }
+        : undefined,
+    },
+    keywords: (post.tags || []).map((t) => t.name).filter(Boolean),
+    articleSection: post.categoryName || undefined,
+    inLanguage: "en",
+    isAccessibleForFree: true,
+  };
+
   return (
     <article className="container mx-auto px-4 py-8 pb-24">
       <JsonLd data={[breadcrumbs, ...(faqSchema ? [faqSchema] : [])]} />
+      <JsonLd data={blogPostingSchema} />
 
       <div className="mx-auto max-w-6xl">
         <PublicBreadcrumbs

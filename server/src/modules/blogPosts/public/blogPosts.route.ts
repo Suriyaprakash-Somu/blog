@@ -132,6 +132,7 @@ export const publicBlogPostsRoutes: FastifyPluginAsync = async (app: FastifyInst
         content: blogPosts.content,
         tableOfContents: blogPosts.tableOfContents,
         faq: blogPosts.faq,
+        updatedAt: blogPosts.updatedAt,
         publishedAt: blogPosts.publishedAt,
         readTimeMinutes: blogPosts.readTimeMinutes,
         isFeatured: blogPosts.isFeatured,

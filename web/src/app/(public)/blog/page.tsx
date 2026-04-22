@@ -64,6 +64,7 @@ export default async function BlogIndexPage({
 }) {
   const settings = await getPublicSiteSettings();
   const logoUrl = settings.logos.lightLogoUrl;
+  const siteName = settings.identity.siteName || "Indian Context";
 
   const sp = await searchParams;
   const pageRaw = typeof sp.page === "string" ? Number.parseInt(sp.page, 10) : NaN;
@@ -89,9 +90,36 @@ export default async function BlogIndexPage({
     { name: "Blog", url: absoluteUrl("/blog") },
   ]);
 
+  const pageUrl = absoluteUrl(page > 1 ? `/blog?page=${page}` : "/blog");
+  const collectionSchema = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: page > 1 ? `Blog (Page ${page})` : "Blog",
+    url: pageUrl,
+    description: "Browse the latest posts, announcements, and tutorials.",
+    isPartOf: {
+      "@type": "WebSite",
+      name: siteName,
+      url: absoluteUrl("/"),
+    },
+  };
+
+  const itemListSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListOrder: "https://schema.org/ItemListOrderDescending",
+    numberOfItems: posts.length,
+    itemListElement: posts.slice(0, 24).map((p, idx) => ({
+      "@type": "ListItem",
+      position: idx + 1,
+      url: absoluteUrl(`/blog/${p.slug}`),
+      name: p.title,
+    })),
+  };
+
   return (
     <div className="container mx-auto px-4 py-16 max-w-5xl">
-      <JsonLd data={breadcrumbs} />
+      <JsonLd data={[breadcrumbs, collectionSchema, itemListSchema]} />
 
       <PublicBreadcrumbs />
 

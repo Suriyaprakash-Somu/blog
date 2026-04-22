@@ -94,7 +94,10 @@ export async function generateMetadata({
   const description =
     tag.metaDescription?.trim() || tag.description?.trim() || undefined;
   const keywords = toKeywords(tag.metaKeywords);
-  const ogImage = buildOgImageUrl(tag.imageUrl, settings.logos.lightLogoUrl);
+  const ogImage = buildOgImageUrl(
+    getPublicImageUrl(tag.imageUrl),
+    settings.logos.lightLogoUrl,
+  );
 
   return {
     title,
@@ -168,9 +171,36 @@ export default async function TagPage({
       }
     : null;
 
+  const pageUrl = absoluteUrl(
+    page > 1 ? `/tags/${tag.slug}?page=${page}` : `/tags/${tag.slug}`,
+  );
+  const collectionSchema = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: page > 1 ? `${tag.name} (Page ${page})` : tag.name,
+    url: pageUrl,
+    description: tag.metaDescription || tag.description || undefined,
+    about: {
+      "@type": "Thing",
+      name: tag.name,
+    },
+  };
+  const itemListSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListOrder: "https://schema.org/ItemListOrderDescending",
+    numberOfItems: posts.length,
+    itemListElement: posts.slice(0, 24).map((p, idx) => ({
+      "@type": "ListItem",
+      position: idx + 1,
+      url: absoluteUrl(`/blog/${p.slug}`),
+      name: p.title,
+    })),
+  };
+
   return (
     <div className="container mx-auto px-4 py-16 max-w-6xl">
-      <JsonLd data={breadcrumbs} />
+      <JsonLd data={[breadcrumbs, collectionSchema, itemListSchema]} />
       {hasFaq && <JsonLd data={faqSchema} />}
 
       <PublicBreadcrumbs
