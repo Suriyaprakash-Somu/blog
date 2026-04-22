@@ -20,7 +20,7 @@ const branchFilterSchema = z.object({
 // Helper to build image URL
 function getImageUrl(fileId: string | null | undefined): string | null {
   if (!fileId) return null;
-  const apiBase = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3005";
+  const apiBase = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3020";
   return `${apiBase}/api/uploads/${fileId}/content`;
 }
 

@@ -20,21 +20,24 @@ type Heading = { id: string; text: string; level: number };
 type Tag = { id: string; name: string; slug: string };
 type SecondaryCategory = { id: string; name: string; slug: string };
 type PopularPost = { slug: string; title: string };
+type RelatedPost = { slug: string; title: string };
 
 export function ClientWidgets({
     headings = [],
     tags = [],
     secondaryCategories = [],
     popularPosts = [],
+    relatedPosts = [],
 }: {
     headings?: Heading[];
     tags?: Tag[];
     secondaryCategories?: SecondaryCategory[];
     popularPosts?: PopularPost[];
+    relatedPosts?: RelatedPost[];
 }) {
     return (
         <Suspense fallback={null}>
-            <MobileTOCFab headings={headings} tags={tags} secondaryCategories={secondaryCategories} popularPosts={popularPosts} />
+            <MobileTOCFab headings={headings} tags={tags} secondaryCategories={secondaryCategories} relatedPosts={relatedPosts} popularPosts={popularPosts} />
         </Suspense>
     );
 }
@@ -44,15 +47,17 @@ export function SidebarWidgets({
     tags = [],
     secondaryCategories = [],
     popularPosts = [],
+    relatedPosts = [],
 }: {
     headings?: Heading[];
     tags?: Tag[];
     secondaryCategories?: SecondaryCategory[];
     popularPosts?: PopularPost[];
+    relatedPosts?: RelatedPost[];
 }) {
     return (
         <Suspense fallback={null}>
-            <DesktopSidebar headings={headings} tags={tags} secondaryCategories={secondaryCategories} popularPosts={popularPosts} />
+            <DesktopSidebar headings={headings} tags={tags} secondaryCategories={secondaryCategories} relatedPosts={relatedPosts} popularPosts={popularPosts} />
         </Suspense>
     );
 }

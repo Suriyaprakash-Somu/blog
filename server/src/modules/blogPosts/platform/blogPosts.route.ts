@@ -206,6 +206,8 @@ const crudRoutes = createCrudRoutes({
     const { tagIds, secondaryCategoryIds, ...postData } = data as Record<string, unknown> & {
       tagIds?: string[];
       secondaryCategoryIds?: string[];
+      status?: string;
+      publishedAt?: unknown;
     };
     if (postData.featuredImageFileId) {
       await assertPlatformUploadUsable(
@@ -217,6 +219,19 @@ const crudRoutes = createCrudRoutes({
     // Assign author to current platform user
     postData.authorId = (ctx.req as any).platformUser?.user?.id;
     postData.authorType = "platform";
+
+    // Normalize publish state.
+    // Public listing/detail requires: status=published AND publishedAt not null AND <= NOW().
+    if (postData.status === "published") {
+      if (!postData.publishedAt) {
+        postData.publishedAt = new Date();
+      } else if (typeof postData.publishedAt === "string" || typeof postData.publishedAt === "number") {
+        const d = new Date(postData.publishedAt);
+        if (!Number.isNaN(d.getTime())) postData.publishedAt = d;
+      }
+    } else if (postData.status === "draft" || postData.status === "archived") {
+      postData.publishedAt = null;
+    }
 
     return enrichWithComputed(postData) as typeof data;
   },
@@ -252,6 +267,8 @@ const crudRoutes = createCrudRoutes({
     const { tagIds, secondaryCategoryIds, ...postData } = data as Record<string, unknown> & {
       tagIds?: string[];
       secondaryCategoryIds?: string[];
+      status?: string;
+      publishedAt?: unknown;
     };
 
     // Handle featured image swap
@@ -294,6 +311,23 @@ const crudRoutes = createCrudRoutes({
 
     // Sync secondary categories
     await syncSecondaryCategories(existing.id, secondaryCategoryIds, ctx);
+
+    // Normalize publish state.
+    // Only act when status is explicitly provided.
+    if (typeof postData.status === "string") {
+      if (postData.status === "published") {
+        if (!postData.publishedAt) {
+          // If transitioning to published or missing publishedAt, set to now.
+          postData.publishedAt = existing.publishedAt ?? new Date();
+        } else if (typeof postData.publishedAt === "string" || typeof postData.publishedAt === "number") {
+          const d = new Date(postData.publishedAt);
+          if (!Number.isNaN(d.getTime())) postData.publishedAt = d;
+        }
+      } else if (postData.status === "draft" || postData.status === "archived") {
+        // User confirmed: clear publishedAt on unpublish.
+        postData.publishedAt = null;
+      }
+    }
 
     return enrichWithComputed(postData) as typeof data;
   },

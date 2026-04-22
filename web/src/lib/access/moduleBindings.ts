@@ -80,6 +80,12 @@ export const MODULE_BINDINGS: Record<string, ModuleBinding> = {
     routeBase: "/platform/automation/rss-sources",
     subject: Subjects.PLATFORM_SETTINGS,
   },
+  "platform.feedItems": {
+    moduleKey: "platform.feedItems",
+    scope: "platform",
+    routeBase: "/platform/automation/feed-items",
+    subject: Subjects.PLATFORM_SETTINGS,
+  },
   "tenant.users": {
     moduleKey: "tenant.users",
     scope: "tenant",

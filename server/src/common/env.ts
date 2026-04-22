@@ -93,6 +93,14 @@ const envSchema = z.object({
   RATE_LIMIT_PLATFORM_MAX: z.string().optional(),
   RATE_LIMIT_PLATFORM_WINDOW: z.string().optional(),
 
+  // RSS automation
+  RSS_SYNC_SCHEDULER_ENABLED: booleanFromEnv.default(false),
+  RSS_SYNC_SCHEDULER_INTERVAL_MINUTES: z.coerce.number().min(1).default(30),
+
+  // Optional: trigger Next.js cache revalidation after publish
+  WEB_REVALIDATE_URL: z.string().url().optional(),
+  WEB_REVALIDATE_SECRET: z.string().min(1).optional(),
+
 });
 
 type EnvInput = z.infer<typeof envSchema>;

@@ -66,7 +66,7 @@ export function BannerManager({
   const props = (current.props ?? {}) as Record<string, unknown>;
   const rawBackground = (props.background as Record<string, unknown> | undefined) ?? {};
   const imageFileId = current.imageFileId || (typeof rawBackground.value === "string" ? rawBackground.value : null);
-  const apiBaseUrl = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3005";
+  const apiBaseUrl = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3020";
 
   const background = {
     type: imageFileId ? "image" : ((rawBackground.type as "color" | "image" | "gradient") ?? "color"),

@@ -58,7 +58,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             // 3) Categories
             ...data.categories.map((c) => ({
                 url: `${BASE_URL}/categories/${c.slug}`,
-                lastModified: new Date(c.updatedAt || now),
+                lastModified: new Date(c.lastPostPublishedAt || c.updatedAt || now),
                 changeFrequency: "weekly" as const,
                 priority: 0.7,
             })),
@@ -66,7 +66,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             // 4) Tags
             ...data.tags.map((t) => ({
                 url: `${BASE_URL}/tags/${t.slug}`,
-                lastModified: new Date(t.updatedAt || now),
+                lastModified: new Date(t.lastPostPublishedAt || t.updatedAt || now),
                 changeFrequency: "weekly" as const,
                 priority: 0.6,
             })),

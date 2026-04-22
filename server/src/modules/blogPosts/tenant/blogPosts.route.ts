@@ -368,7 +368,10 @@ const crudRoutes = createCrudRoutes({
         .where(eq(uploadedFiles.id, String(postData.featuredImageFileId)));
     }
 
-    if (postData.status === "published") {
+    // Tenant cannot publish/unpublish. Also prevent accidental unpublish of already-published posts.
+    if (existing.status === "published") {
+      delete postData.status;
+    } else if (postData.status === "published") {
       postData.status = "draft";
     }
 

@@ -9,22 +9,33 @@ import { PublicBreadcrumbs } from "@/components/layout/PublicBreadcrumbs";
 
 export const revalidate = 10800; // 3 hours
 
-export const metadata: Metadata = {
-  title: "Categories",
-  description: "Explore posts by category.",
-  alternates: { canonical: "/categories" },
-  openGraph: {
-    type: "website",
-    title: "Categories",
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  const sp = await searchParams;
+  const pageRaw = typeof sp.page === "string" ? Number.parseInt(sp.page, 10) : NaN;
+  const page = Number.isFinite(pageRaw) && pageRaw > 1 ? pageRaw : 1;
+
+  return {
+    title: page > 1 ? `Categories (Page ${page})` : "Categories",
     description: "Explore posts by category.",
-    url: "/categories",
-  },
-  twitter: {
-    card: "summary",
-    title: "Categories",
-    description: "Explore posts by category.",
-  },
-};
+    alternates: { canonical: "/categories" },
+    robots: page > 1 ? { index: false, follow: true } : undefined,
+    openGraph: {
+      type: "website",
+      title: page > 1 ? `Categories (Page ${page})` : "Categories",
+      description: "Explore posts by category.",
+      url: "/categories",
+    },
+    twitter: {
+      card: "summary",
+      title: page > 1 ? `Categories (Page ${page})` : "Categories",
+      description: "Explore posts by category.",
+    },
+  };
+}
 
 type PublicCategory = {
   id: string;
@@ -42,11 +53,28 @@ async function fetchJson<T>(url: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-export default async function CategoriesPage() {
-  const res = await fetchJson<{ success: true; data: PublicCategory[] }>(
-    "/api/public/blog-categories",
-  ).catch(() => ({ success: true as const, data: [] as PublicCategory[] }));
+export default async function CategoriesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const pageRaw = typeof sp.page === "string" ? Number.parseInt(sp.page, 10) : NaN;
+  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
+  const pageSize = 60;
+
+  const res = await fetchJson<{
+    success: true;
+    data: PublicCategory[];
+    pagination?: { page: number; pageSize: number; rowCount: number };
+  }>(`/api/public/blog-categories?page=${page}&pageSize=${pageSize}`).catch(() => ({
+    success: true as const,
+    data: [] as PublicCategory[],
+    pagination: { page, pageSize, rowCount: 0 },
+  }));
   const categories = res.data ?? [];
+  const rowCount = res.pagination?.rowCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(rowCount / pageSize));
 
   const breadcrumbs = breadcrumbList([
     { name: "Home", url: absoluteUrl("/") },
@@ -102,6 +130,28 @@ export default async function CategoriesPage() {
           ))}
         </div>
       )}
+
+      {totalPages > 1 ? (
+        <div className="mt-14 flex items-center justify-center gap-3">
+          <Link
+            href={page > 1 ? `/categories?page=${page - 1}` : "/categories"}
+            className={`rounded-md border px-3 py-2 text-sm ${page <= 1 ? "pointer-events-none opacity-50" : "hover:bg-muted"}`}
+            aria-disabled={page <= 1}
+          >
+            Prev
+          </Link>
+          <span className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          <Link
+            href={page < totalPages ? `/categories?page=${page + 1}` : `/categories?page=${totalPages}`}
+            className={`rounded-md border px-3 py-2 text-sm ${page >= totalPages ? "pointer-events-none opacity-50" : "hover:bg-muted"}`}
+            aria-disabled={page >= totalPages}
+          >
+            Next
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }

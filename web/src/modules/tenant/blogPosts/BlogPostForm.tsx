@@ -195,7 +195,7 @@ export function BlogPostForm({
       await mutation.mutateAsync(values as PostFormData & { id?: string });
 
       // Also revalidate detail pages that depend on slug.
-      const paths = ["/", "/blog", `/blog/${values.slug}`];
+      const paths = ["/", "/blog", "/categories", "/tags", "/rss.xml", "/sitemap.xml", `/blog/${values.slug}`];
       if (isEdit && data?.slug && data.slug !== values.slug) {
         paths.push(`/blog/${data.slug}`);
       }

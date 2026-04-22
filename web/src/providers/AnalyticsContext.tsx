@@ -47,7 +47,7 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
     : publicAnalyticsApi.trackBatch.endpoint;
 
   const baseUrl =
-    process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3005";
+    process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3020";
 
   const getSessionId = useCallback((): string | undefined => {
     if (typeof window === "undefined") return undefined;

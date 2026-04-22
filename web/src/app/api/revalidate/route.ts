@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidateTag } from "next/cache";
+import { revalidateTag, revalidatePath } from "next/cache";
 
 export async function POST(request: Request) {
   const secret = process.env.REVALIDATE_SECRET;
@@ -16,7 +16,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const tag = url.searchParams.get("tag") ?? "landing";
-  revalidateTag(tag, "max");
-  return NextResponse.json({ ok: true, revalidated: { tag } });
+  const tag = url.searchParams.get("tag");
+  const path = url.searchParams.get("path");
+
+  const revalidated: { tag?: string; paths?: string[] } = {};
+
+  if (tag) {
+    revalidateTag(tag, "max");
+    revalidated.tag = tag;
+  }
+
+  if (path) {
+    const paths = path
+      .split(",")
+      .map((p) => p.trim())
+      .filter((p) => p.startsWith("/"));
+    for (const p of paths) {
+      revalidatePath(p, "page");
+    }
+    revalidated.paths = paths;
+  }
+
+  // Backward-compatible default
+  if (!tag && !path) {
+    revalidateTag("landing", "max");
+    revalidated.tag = "landing";
+  }
+
+  return NextResponse.json({ ok: true, revalidated });
 }

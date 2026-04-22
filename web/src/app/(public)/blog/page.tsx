@@ -6,25 +6,37 @@ import { PublicBreadcrumbs } from "@/components/layout/PublicBreadcrumbs";
 import { absoluteUrl, breadcrumbList } from "@/lib/seo/jsonld";
 import { getPublicImageUrl } from "@/lib/utils";
 import { ArrowRight } from "lucide-react";
+import { getPublicSiteSettings } from "@/lib/api/public-settings";
 
 export const revalidate = 10800; // 3 hours
 
-export const metadata: Metadata = {
-  title: "Blog",
-  description: "Browse the latest posts, announcements, and tutorials.",
-  alternates: { canonical: "/blog" },
-  openGraph: {
-    type: "website",
-    title: "Blog",
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  const sp = await searchParams;
+  const pageRaw = typeof sp.page === "string" ? Number.parseInt(sp.page, 10) : NaN;
+  const page = Number.isFinite(pageRaw) && pageRaw > 1 ? pageRaw : 1;
+
+  return {
+    title: page > 1 ? `Blog (Page ${page})` : "Blog",
     description: "Browse the latest posts, announcements, and tutorials.",
-    url: "/blog",
-  },
-  twitter: {
-    card: "summary",
-    title: "Blog",
-    description: "Browse the latest posts, announcements, and tutorials.",
-  },
-};
+    alternates: { canonical: "/blog" },
+    robots: page > 1 ? { index: false, follow: true } : undefined,
+    openGraph: {
+      type: "website",
+      title: page > 1 ? `Blog (Page ${page})` : "Blog",
+      description: "Browse the latest posts, announcements, and tutorials.",
+      url: "/blog",
+    },
+    twitter: {
+      card: "summary",
+      title: page > 1 ? `Blog (Page ${page})` : "Blog",
+      description: "Browse the latest posts, announcements, and tutorials.",
+    },
+  };
+}
 
 type PublicPostListing = {
   id: string;
@@ -45,12 +57,32 @@ async function fetchJson<T>(url: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-export default async function BlogIndexPage() {
-  const res = await fetchJson<{ success: true; data: PublicPostListing[] }>(
-    "/api/public/blog-posts",
-  ).catch(() => ({ success: true as const, data: [] }));
+export default async function BlogIndexPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const settings = await getPublicSiteSettings();
+  const logoUrl = settings.logos.lightLogoUrl;
+
+  const sp = await searchParams;
+  const pageRaw = typeof sp.page === "string" ? Number.parseInt(sp.page, 10) : NaN;
+  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
+  const pageSize = 24;
+
+  const res = await fetchJson<{
+    success: true;
+    data: PublicPostListing[];
+    pagination?: { page: number; pageSize: number; rowCount: number };
+  }>(`/api/public/blog-posts?page=${page}&pageSize=${pageSize}`).catch(() => ({
+    success: true as const,
+    data: [],
+    pagination: { page, pageSize, rowCount: 0 },
+  }));
 
   const posts = res.data ?? [];
+  const rowCount = res.pagination?.rowCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(rowCount / pageSize));
 
   const breadcrumbs = breadcrumbList([
     { name: "Home", url: absoluteUrl("/") },
@@ -96,6 +128,15 @@ export default async function BlogIndexPage() {
                     className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
                     loading="lazy"
                   />
+                ) : logoUrl ? (
+                  <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-primary/15 to-primary/5">
+                    <img
+                      src={logoUrl}
+                      alt="Site logo"
+                      className="w-[58%] max-w-[240px] h-auto object-contain opacity-90 transition-transform duration-700 ease-out group-hover:scale-105"
+                      loading="lazy"
+                    />
+                  </div>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-primary/20 to-primary/5 transition-transform duration-700 ease-out group-hover:scale-110">
                     <span className="text-primary/40 font-semibold text-xl">
@@ -145,6 +186,28 @@ export default async function BlogIndexPage() {
           ))}
         </div>
       )}
+
+      {totalPages > 1 ? (
+        <div className="mt-14 flex items-center justify-center gap-3">
+          <Link
+            href={page > 1 ? `/blog?page=${page - 1}` : "/blog"}
+            className={`rounded-md border px-3 py-2 text-sm ${page <= 1 ? "pointer-events-none opacity-50" : "hover:bg-muted"}`}
+            aria-disabled={page <= 1}
+          >
+            Prev
+          </Link>
+          <span className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          <Link
+            href={page < totalPages ? `/blog?page=${page + 1}` : `/blog?page=${totalPages}`}
+            className={`rounded-md border px-3 py-2 text-sm ${page >= totalPages ? "pointer-events-none opacity-50" : "hover:bg-muted"}`}
+            aria-disabled={page >= totalPages}
+          >
+            Next
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -21,6 +21,7 @@ export const revalidate = 10800; // 3 hours
 
 type PublicPostDetail = {
   id: string;
+  categoryId?: string | null;
   title: string;
   slug: string;
   excerpt: string | null;
@@ -39,9 +40,11 @@ type PublicPostDetail = {
   authorEmail: string | null;
   categoryName: string | null;
   categorySlug: string | null;
+  relatedPosts?: { slug: string; title: string }[];
+  popularPosts?: { slug: string; title: string }[];
 };
 
-const apiBase = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3005";
+const apiBase = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3020";
 
 // Deduplicated fetch: generateMetadata and page component share a single call
 const getPost = cache(async (slug: string): Promise<PublicPostDetail | null> => {
@@ -147,6 +150,9 @@ export default async function BlogPostPage({
         headings={post.tableOfContents || []}
         tags={post.tags || []}
         secondaryCategories={post.secondaryCategories || []}
+        // Related/Popular are rendered server-side below for SEO; avoid duplicate UI.
+        relatedPosts={[]}
+        popularPosts={[]}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-10 relative mx-auto max-w-6xl">
@@ -218,6 +224,53 @@ export default async function BlogPostPage({
             />
           </div>
 
+          {(post.relatedPosts && post.relatedPosts.length > 0) ||
+          (post.popularPosts && post.popularPosts.length > 0) ? (
+            <div className="mt-16 border-t pt-12 mx-auto max-w-[98ch]">
+              {post.relatedPosts && post.relatedPosts.length > 0 ? (
+                <section>
+                  <h2 className="text-2xl font-extrabold tracking-tight mb-6">
+                    Related Posts
+                  </h2>
+                  <div className="grid gap-3">
+                    {post.relatedPosts.slice(0, 6).map((p) => (
+                      <Link
+                        key={p.slug}
+                        href={`/blog/${p.slug}`}
+                        className="group rounded-xl border bg-card px-4 py-3 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="font-semibold leading-snug group-hover:text-primary transition-colors line-clamp-2">
+                          {p.title}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              {post.popularPosts && post.popularPosts.length > 0 ? (
+                <section className={post.relatedPosts && post.relatedPosts.length > 0 ? "mt-12" : ""}>
+                  <h2 className="text-2xl font-extrabold tracking-tight mb-6">
+                    Popular Posts
+                  </h2>
+                  <div className="grid gap-3">
+                    {post.popularPosts.slice(0, 6).map((p) => (
+                      <Link
+                        key={p.slug}
+                        href={`/blog/${p.slug}`}
+                        className="group rounded-xl border bg-card px-4 py-3 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="font-semibold leading-snug group-hover:text-primary transition-colors line-clamp-2">
+                          {p.title}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+          ) : null}
+
           {post.faq && post.faq.length > 0 ? (
             <div className="mt-24 border-t pt-16 mx-auto max-w-[98ch]">
               <h2 className="text-3xl font-extrabold tracking-tight mb-10 text-balance">
@@ -242,6 +295,9 @@ export default async function BlogPostPage({
             headings={post.tableOfContents || []}
             tags={post.tags || []}
             secondaryCategories={post.secondaryCategories || []}
+            // Related/Popular are rendered server-side below for SEO; avoid duplicate UI.
+            relatedPosts={[]}
+            popularPosts={[]}
           />
         </div>
       </div>

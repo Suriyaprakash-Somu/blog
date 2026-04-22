@@ -71,10 +71,15 @@ function toKeywords(value: string | null | undefined): string[] | undefined {
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<Metadata> {
   const { slug } = await params;
+  const sp = await searchParams;
+  const pageRaw = typeof sp.page === "string" ? Number.parseInt(sp.page, 10) : NaN;
+  const page = Number.isFinite(pageRaw) && pageRaw > 1 ? pageRaw : 1;
   const category = await getCategory(slug);
   const settings = await getPublicSiteSettings();
 
@@ -98,6 +103,7 @@ export async function generateMetadata({
     description,
     keywords,
     alternates: { canonical: `/categories/${category.slug}` },
+    robots: page > 1 ? { index: false, follow: true } : undefined,
     openGraph: {
       type: "website",
       title,
@@ -116,14 +122,20 @@ export async function generateMetadata({
 
 export default async function CategoryPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
+  const sp = await searchParams;
+  const pageRaw = typeof sp.page === "string" ? Number.parseInt(sp.page, 10) : NaN;
+  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
+  const pageSize = 24;
 
   const [category, postsRes] = await Promise.all([
     getCategory(slug),
-    fetch(`${apiBase}/api/public/blog-posts?categorySlug=${encodeURIComponent(slug)}&limit=24`, {
+    fetch(`${apiBase}/api/public/blog-posts?categorySlug=${encodeURIComponent(slug)}&page=${page}&pageSize=${pageSize}`, {
       next: { revalidate },
     })
       .then((r) => r.ok ? r.json() : { data: [] })
@@ -132,6 +144,8 @@ export default async function CategoryPage({
 
   if (!category) notFound();
   const posts: PublicPostListing[] = postsRes.data ?? [];
+  const rowCount = postsRes.pagination?.rowCount ?? posts.length;
+  const totalPages = Math.max(1, Math.ceil(rowCount / pageSize));
 
   const breadcrumbs = breadcrumbList([
     { name: "Home", url: absoluteUrl("/") },
@@ -185,6 +199,13 @@ export default async function CategoryPage({
           </p>
         </div>
       ) : (
+        <>
+          {category.content && (
+            <div className="prose prose-lg dark:prose-invert max-w-none mt-10 mb-12 bg-card/50 rounded-3xl p-8 md:p-12 border border-border shadow-sm">
+              <ReactMarkdown>{category.content}</ReactMarkdown>
+            </div>
+          )}
+
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {posts.map((post) => (
             <Link
@@ -231,13 +252,30 @@ export default async function CategoryPage({
             </Link>
           ))}
         </div>
+        </>
       )}
 
-      {category.content && (
-        <div className="prose prose-lg dark:prose-invert max-w-none mt-20 mb-16 bg-card/50 rounded-3xl p-8 md:p-12 border border-border shadow-sm">
-          <ReactMarkdown>{category.content}</ReactMarkdown>
+      {totalPages > 1 ? (
+        <div className="mt-14 flex items-center justify-center gap-3">
+          <Link
+            href={page > 1 ? `/categories/${category.slug}?page=${page - 1}` : `/categories/${category.slug}`}
+            className={`rounded-md border px-3 py-2 text-sm ${page <= 1 ? "pointer-events-none opacity-50" : "hover:bg-muted"}`}
+            aria-disabled={page <= 1}
+          >
+            Prev
+          </Link>
+          <span className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          <Link
+            href={page < totalPages ? `/categories/${category.slug}?page=${page + 1}` : `/categories/${category.slug}?page=${totalPages}`}
+            className={`rounded-md border px-3 py-2 text-sm ${page >= totalPages ? "pointer-events-none opacity-50" : "hover:bg-muted"}`}
+            aria-disabled={page >= totalPages}
+          >
+            Next
+          </Link>
         </div>
-      )}
+      ) : null}
 
       {hasFaq && (
         <div className="mt-20 mb-16 max-w-4xl mx-auto bg-card rounded-3xl p-8 md:p-12 border shadow-sm">

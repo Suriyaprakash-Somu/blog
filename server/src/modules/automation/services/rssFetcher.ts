@@ -9,11 +9,17 @@ const parser = new Parser({
     },
 });
 
+function stripHtml(value: string | undefined | null): string {
+    if (!value) return "";
+    return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
 export interface RssFetchedItem {
     guid?: string;
     title?: string;
     link?: string;
     pubDate?: string;
+    isoDate?: string;
     content?: string;
     creator?: string;
     summary?: string;
@@ -27,9 +33,10 @@ export async function fetchRssFeed(url: string): Promise<RssFetchedItem[]> {
             title: item.title,
             link: item.link,
             pubDate: item.pubDate,
+            isoDate: (item as any).isoDate,
             content: item.contentEncoded || item.content,
             creator: item.creator,
-            summary: item.contentSnippet,
+            summary: stripHtml(item.contentSnippet),
         }));
     } catch (error) {
         console.error(`Error fetching RSS feed from ${url}:`, error);

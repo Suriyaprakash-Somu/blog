@@ -33,7 +33,7 @@ export interface FileUploadFieldProps {
 }
 
 function getApiBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3005";
+  return process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3020";
 }
 
 function isImageContentType(contentType?: string): boolean {

@@ -217,6 +217,28 @@ export async function createApp(options: { onRoute?: onRouteHookHandler } = {}) 
   // Routes
   await registerRoutes(app);
 
+  // Optional RSS sync scheduler
+  if (env.RSS_SYNC_SCHEDULER_ENABLED) {
+    const intervalMs = env.RSS_SYNC_SCHEDULER_INTERVAL_MINUTES * 60_000;
+    app.log.info(
+      {
+        intervalMinutes: env.RSS_SYNC_SCHEDULER_INTERVAL_MINUTES,
+      },
+      "[rss] RSS sync scheduler enabled",
+    );
+
+    // Dynamic import to avoid pulling automation module unless needed.
+    const { AutomationService } = await import(
+      "./modules/automation/services/automation.service.js"
+    );
+
+    setInterval(() => {
+      void AutomationService.syncAllFeeds().catch((err: unknown) => {
+        app.log.error({ err }, "[rss] Scheduled RSS sync failed");
+      });
+    }, intervalMs);
+  }
+
   // 404 handler
   app.setNotFoundHandler(async (request, reply) => {
     const requestId = request.requestContext.get("requestId") || request.id;

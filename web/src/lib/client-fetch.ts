@@ -41,7 +41,7 @@ export async function clientFetch<T>(
   }
 
   const baseUrl =
-    process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3005";
+    process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3020";
 
   return fetchCore<T>(url, {
     ...fetcherOptions,

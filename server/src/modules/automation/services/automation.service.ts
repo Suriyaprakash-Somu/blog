@@ -1,5 +1,6 @@
-import { and, asc, desc, eq, inArray, isNull, lte } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { LRUCache } from "lru-cache";
+import crypto from "node:crypto";
 import { db } from "../../../db/index.js";
 import { blogCategories } from "../../blogCategories/blogCategories.schema.js";
 import { blogPosts } from "../../blogPosts/blogPosts.schema.js";
@@ -26,10 +27,12 @@ import {
   extractTableOfContents,
   slugify,
 } from "../../../utils/text.js";
+import { webRevalidatePaths } from "../../../utils/webRevalidate.js";
 
 const SESSION_EXPIRY_HOURS = 24;
 const DEFAULT_TOPIC_LIMIT = 10;
 const DEFAULT_SELECTION_PAGE_SIZE = 10;
+const DEFAULT_TOPICS_PAGE_SIZE = 10;
 
 // Telegram can retry webhook deliveries (or tunnels can duplicate requests).
 // Dedup by update_id/callback_query.id so button clicks are idempotent.
@@ -74,6 +77,15 @@ interface FeedTopicCandidate {
   sourcePublishedAt: Date | null;
 }
 
+interface FeedTopicListItem {
+  id: string;
+  title: string;
+  url: string;
+  sourceName: string;
+  publishedAt: Date | null;
+  processingStatus: "unprocessed" | "ignored" | "processed" | "failed";
+}
+
 interface ResolvedBlogPostPrompt {
   systemPrompt: string | null;
   userPromptTemplate: string | null;
@@ -97,6 +109,11 @@ function formatTelegramDate(value: Date | null) {
   return value ? value.toISOString().slice(0, 10) : "unknown date";
 }
 
+function computeStableGuid(params: { sourceUrl: string; url?: string | null; title?: string | null; pubDate?: Date | null }) {
+  const base = `${params.sourceUrl}|${params.url || ""}|${params.title || ""}|${params.pubDate?.toISOString() || ""}`;
+  return crypto.createHash("sha256").update(base).digest("hex");
+}
+
 export class AutomationService {
   static async syncAllFeeds() {
     const activeSources = await db
@@ -114,27 +131,43 @@ export class AutomationService {
         let newCount = 0;
 
         for (const item of items) {
-          const guid = item.guid || item.link || "";
-          if (!guid) {
-            continue;
-          }
+          const title = item.title?.trim() || "";
+          const url = item.link?.trim() || "";
+
+          // Skip rows that can't generate a meaningful draft.
+          if (!title || !url) continue;
+
+          const publishedAt = item.isoDate
+            ? new Date(item.isoDate)
+            : item.pubDate
+              ? new Date(item.pubDate)
+              : null;
+
+          const safePublishedAt = publishedAt && !Number.isNaN(publishedAt.getTime()) ? publishedAt : null;
+
+          const guid = (item.guid || url).trim() || computeStableGuid({
+            sourceUrl: source.url,
+            url,
+            title,
+            pubDate: safePublishedAt,
+          });
 
           const existing = await db
             .select({ id: feedItems.id })
             .from(feedItems)
-            .where(eq(feedItems.guid, guid))
+            .where(and(eq(feedItems.sourceId, source.id), eq(feedItems.guid, guid)))
             .limit(1);
 
           if (existing.length === 0) {
             await db.insert(feedItems).values({
               sourceId: source.id,
               guid,
-              url: item.link || "",
-              title: item.title || "Untitled",
+              url,
+              title,
               description: item.summary || "",
               content: item.content || "",
               author: item.creator || "",
-              publishedAt: item.pubDate ? new Date(item.pubDate) : new Date(),
+              publishedAt: safePublishedAt,
               processingStatus: "unprocessed",
             });
             newCount++;
@@ -177,6 +210,128 @@ export class AutomationService {
       .limit(limit);
 
     return rows;
+  }
+
+  private static async getTopicsPage(page: number, pageSize = DEFAULT_TOPICS_PAGE_SIZE) {
+    const safePage = Math.max(0, page);
+
+    const rows = await db
+      .select({
+        id: feedItems.id,
+        title: feedItems.title,
+        url: feedItems.url,
+        publishedAt: feedItems.publishedAt,
+        processingStatus: feedItems.processingStatus,
+        sourceName: rssSources.name,
+      })
+      .from(feedItems)
+      .leftJoin(rssSources, eq(rssSources.id, feedItems.sourceId))
+      .where(inArray(feedItems.processingStatus, ["unprocessed", "ignored"]))
+      .orderBy(
+        sql`case when ${feedItems.processingStatus} = 'unprocessed' then 0 else 1 end`,
+        desc(feedItems.publishedAt),
+        desc(feedItems.createdAt),
+      )
+      .limit(pageSize + 1)
+      .offset(safePage * pageSize);
+
+    const items = rows.slice(0, pageSize).map((row) => ({
+      id: row.id,
+      title: row.title,
+      url: row.url,
+      publishedAt: row.publishedAt,
+      processingStatus: row.processingStatus,
+      sourceName: row.sourceName ?? "Unknown",
+    })) as FeedTopicListItem[];
+
+    return {
+      page: safePage,
+      items,
+      hasNext: rows.length > pageSize,
+      hasPrev: safePage > 0,
+    };
+  }
+
+  private static buildTopicsMessage(params: { page: number; items: FeedTopicListItem[] }) {
+    const lines = [
+      "RSS topics",
+      "",
+      `Page: ${params.page + 1}`,
+      "",
+      ...params.items.map((item, index) => {
+        const statusBadge = item.processingStatus === "ignored" ? "[ignored] " : "";
+        return `${index + 1}. ${statusBadge}${item.title}\n   ${item.sourceName} | ${formatTelegramDate(item.publishedAt)}`;
+      }),
+      "",
+      "Pick a number to generate a draft (use Open to view the source).",
+      "Use Ignore/Unignore to manage the list.",
+      "Tip: use /sync to fetch fresh items.",
+    ];
+
+    return lines.join("\n");
+  }
+
+  private static buildTopicsKeyboard(params: { page: number; items: FeedTopicListItem[]; hasPrev: boolean; hasNext: boolean }) {
+    const rows: Array<Array<{ text: string; callback_data?: string; url?: string }>> = params.items.map((item, index) => {
+      const statusAction = item.processingStatus === "ignored" ? "unprocessed" : "ignored";
+      const statusLabel = item.processingStatus === "ignored" ? "Unignore" : "Ignore";
+
+      return [
+      {
+        text: `${index + 1}`,
+        callback_data: `rsstopicpick:${item.id}`,
+      },
+      {
+        text: "Open",
+        url: item.url,
+      },
+      {
+        text: statusLabel,
+        callback_data: `rsstopicset:${params.page}:${item.id}:${statusAction}`,
+      },
+    ];
+    });
+
+    const navRow: Array<{ text: string; callback_data: string }> = [];
+    if (params.hasPrev) navRow.push({ text: "Prev", callback_data: `rsstopicsnav:${params.page - 1}` });
+    if (params.hasNext) navRow.push({ text: "Next", callback_data: `rsstopicsnav:${params.page + 1}` });
+    if (navRow.length > 0) rows.push(navRow);
+
+    rows.push([
+      { text: "Sync RSS", callback_data: "rsscmd:sync" },
+      { text: "Refresh", callback_data: `rsstopicsnav:${params.page}` },
+    ]);
+
+    return { inline_keyboard: rows };
+  }
+
+  private static async showTopics(params: { chatId: string | number; messageId?: number; page?: number }) {
+    const page = params.page ?? 0;
+    const pageData = await AutomationService.getTopicsPage(page);
+
+    const text = AutomationService.buildTopicsMessage({ page: pageData.page, items: pageData.items });
+    const replyMarkup = AutomationService.buildTopicsKeyboard({
+      page: pageData.page,
+      items: pageData.items,
+      hasPrev: pageData.hasPrev,
+      hasNext: pageData.hasNext,
+    });
+
+    if (params.messageId) {
+      await TelegramBotService.editMessageText({
+        chatId: params.chatId,
+        messageId: params.messageId,
+        text,
+        replyMarkup,
+      });
+      return;
+    }
+
+    await TelegramBotService.sendMessage({
+      chatId: params.chatId,
+      text,
+      replyMarkup,
+    });
   }
 
   private static async getActiveCategoriesPage(page: number, pageSize = DEFAULT_SELECTION_PAGE_SIZE) {
@@ -513,6 +668,126 @@ export class AutomationService {
       candidateCount: notification.candidateCount,
       message: "Topic shortlist sent to Telegram",
     };
+  }
+
+  private static async createSessionFromFeedItem(params: { feedItemId: string; chatId: string | number; messageId: number }) {
+    const expiresAt = new Date(Date.now() + SESSION_EXPIRY_HOURS * 60 * 60 * 1000);
+
+    const { sessionId, title } = await db.transaction(async (tx) => {
+      // Ensure idempotency across retries/double-clicks by taking a DB-level lock
+      // on the feed item id for the duration of this transaction.
+      const lock = await tx.execute(
+        sql`select pg_try_advisory_xact_lock(hashtext(${params.feedItemId}::text)) as ok`,
+      );
+      const ok = Boolean((lock.rows?.[0] as { ok?: boolean } | undefined)?.ok);
+      if (!ok) {
+        throw new Error("This topic is already being processed. Try again in a moment.");
+      }
+
+      const [feedItem] = await tx
+        .select({
+          id: feedItems.id,
+          title: feedItems.title,
+          description: feedItems.description,
+          url: feedItems.url,
+          author: feedItems.author,
+          publishedAt: feedItems.publishedAt,
+          processingStatus: feedItems.processingStatus,
+        })
+        .from(feedItems)
+        .where(eq(feedItems.id, params.feedItemId))
+        .limit(1);
+
+      if (!feedItem) {
+        throw new Error("Topic not found");
+      }
+
+      if (feedItem.processingStatus !== "unprocessed" && feedItem.processingStatus !== "ignored") {
+        throw new Error(`Topic is ${feedItem.processingStatus}`);
+      }
+
+      await tx
+        .update(automationTopicSessions)
+        .set({ status: "cancelled", updatedAt: new Date() })
+        .where(eq(automationTopicSessions.status, "pending"));
+
+      const [session] = await tx
+        .insert(automationTopicSessions)
+        .values({
+          expiresAt,
+          status: "selected",
+          workflowStep: "topic_selection",
+          telegramChatId: String(params.chatId),
+          telegramMessageId: params.messageId,
+          selectedCandidateRank: 0,
+        })
+        .returning({ id: automationTopicSessions.id });
+
+      await tx.insert(automationTopicCandidates).values({
+        sessionId: session.id,
+        feedItemId: feedItem.id,
+        rank: 0,
+        title: feedItem.title,
+        description: feedItem.description,
+        sourceUrl: feedItem.url,
+        sourceAuthor: feedItem.author,
+        sourcePublishedAt: feedItem.publishedAt,
+        isSelected: true,
+      });
+
+      return { sessionId: session.id, title: feedItem.title };
+    });
+
+    return { sessionId, title };
+  }
+
+  private static async handleTelegramTopicPicked(params: {
+    feedItemId: string;
+    callbackQueryId: string;
+    chatId: string | number;
+    messageId: number;
+  }) {
+    try {
+      const { sessionId, title } = await AutomationService.createSessionFromFeedItem({
+        feedItemId: params.feedItemId,
+        chatId: params.chatId,
+        messageId: params.messageId,
+      });
+
+      await TelegramBotService.answerCallbackQuery({
+        callbackQueryId: params.callbackQueryId,
+        text: "Topic selected. Draft generation started.",
+      });
+
+      await TelegramBotService.editMessageText({
+        chatId: params.chatId,
+        messageId: params.messageId,
+        text: `Generating draft for:\n\n${title}`,
+      });
+
+      void AutomationService.generateDraftForSession(sessionId)
+        .then(async () => {
+          await AutomationService.showCategorySelection({
+            sessionId,
+            chatId: params.chatId,
+            messageId: params.messageId,
+            page: 0,
+          });
+        })
+        .catch(async (err) => {
+          await TelegramBotService.editMessageText({
+            chatId: params.chatId,
+            messageId: params.messageId,
+            text: `Draft generation failed.\n\n${err instanceof Error ? err.message : "Unknown error"}`,
+          });
+        });
+    } catch (err) {
+      await TelegramBotService.answerCallbackQuery({
+        callbackQueryId: params.callbackQueryId,
+        text: err instanceof Error ? err.message : "Unable to select topic",
+        showAlert: true,
+      });
+    }
   }
 
   private static async getSessionWithDraft(sessionId: string) {
@@ -999,6 +1274,38 @@ export class AutomationService {
     }
   }
 
+  static async autoGenerateDraftFromFeedItemId(feedItemId: string) {
+    const [feedItem] = await db
+      .select()
+      .from(feedItems)
+      .where(eq(feedItems.id, feedItemId))
+      .limit(1);
+
+    if (!feedItem) {
+      throw new Error("Feed item not found");
+    }
+
+    if (feedItem.processingStatus === "processed") {
+      throw new Error("Feed item already processed");
+    }
+
+    try {
+      const draft = await AutomationService.createDraftFromFeedItems({
+        title: feedItem.title,
+        sourceItems: [feedItem],
+      });
+
+      return draft;
+    } catch (err) {
+      if (err instanceof LLMGenerationError) {
+        throw new Error(
+          `RSS automation failed: LLM response could not be parsed. Cache key: ${err.cacheKey}`,
+        );
+      }
+      throw err;
+    }
+  }
+
   private static async markSessionCancelled(sessionId: string) {
     const [session] = await db
       .update(automationTopicSessions)
@@ -1300,14 +1607,35 @@ export class AutomationService {
       if (update.message.text.trim().toLowerCase() === "/start") {
         await TelegramBotService.sendMessage({
           chatId,
-          text: "RSS automation bot is connected. Send /topics to fetch a new shortlist of RSS topics here.",
+          text: "RSS automation bot is connected.\n\nCommands:\n/sync - fetch latest RSS items\n/topics - browse synced topics and generate drafts",
           replyMarkup: {
-            inline_keyboard: [[{ text: "Fetch topics", callback_data: "rsscmd:topics" }]],
+            inline_keyboard: [[
+              { text: "Sync RSS", callback_data: "rsscmd:sync" },
+              { text: "Browse topics", callback_data: "rsscmd:topics" },
+            ]],
           },
         });
       }
 
       const normalizedText = update.message.text.trim().toLowerCase();
+      const wantsSync =
+        normalizedText === "/sync" ||
+        normalizedText.startsWith("/sync ") ||
+        normalizedText === "sync";
+
+      if (wantsSync) {
+        await TelegramBotService.sendMessage({
+          chatId,
+          text: "Syncing RSS feeds...",
+        });
+
+        const result = await AutomationService.syncAllFeeds();
+        await TelegramBotService.sendMessage({
+          chatId,
+          text: `RSS sync completed.\n\nSources: ${result.sourceCount}\nNew items: ${result.newItems}`,
+        });
+      }
+
       const wantsTopics =
         normalizedText === "/topics" ||
         normalizedText.startsWith("/topics ") ||
@@ -1316,12 +1644,10 @@ export class AutomationService {
         normalizedText === "fetch topic";
 
       if (wantsTopics) {
-        await TelegramBotService.sendMessage({
-          chatId,
-          text: "Syncing RSS feeds and preparing a shortlist...",
-        });
-
-        await AutomationService.syncAndNotifyTelegramToChat(chatId, 10);
+        const parts = update.message.text.trim().split(/\s+/);
+        const requestedPage = parts.length >= 2 ? Number.parseInt(parts[1] || "", 10) : NaN;
+        const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage - 1 : 0;
+        await AutomationService.showTopics({ chatId, page });
       }
 
       return { handled: true, kind: "message" };
@@ -1354,10 +1680,102 @@ export class AutomationService {
       if (callbackData === "rsscmd:topics") {
         await TelegramBotService.answerCallbackQuery({
           callbackQueryId: callback.id,
-          text: "Fetching topics...",
+          text: "Loading topics...",
         });
 
-        await AutomationService.syncAndNotifyTelegramToChat(chatId, 10);
+        await AutomationService.showTopics({
+          chatId,
+          page: 0,
+        });
+        return { handled: true, kind: "callback" };
+      }
+
+      if (callbackData === "rsscmd:sync") {
+        await TelegramBotService.answerCallbackQuery({
+          callbackQueryId: callback.id,
+          text: "Syncing RSS...",
+        });
+
+        const result = await AutomationService.syncAllFeeds();
+
+        await TelegramBotService.sendMessage({
+          chatId,
+          text: `RSS sync completed.\n\nSources: ${result.sourceCount}\nNew items: ${result.newItems}`,
+        });
+
+        // If user clicked the sync button from the topics list, refresh that message.
+        if (message?.message_id) {
+          await AutomationService.showTopics({ chatId, messageId: message.message_id, page: 0 });
+        }
+
+        return { handled: true, kind: "callback" };
+      }
+
+      const topicsNavMatch = callbackData.match(/^rsstopicsnav:(\d+)$/i);
+      if (topicsNavMatch) {
+        try {
+          await TelegramBotService.answerCallbackQuery({
+            callbackQueryId: callback.id,
+            text: "Loading topics...",
+          });
+
+          await AutomationService.showTopics({
+            chatId,
+            messageId: message.message_id,
+            page: Number(topicsNavMatch[1]),
+          });
+        } catch (err) {
+          await TelegramBotService.answerCallbackQuery({
+            callbackQueryId: callback.id,
+            text: err instanceof Error ? err.message : "Unable to load topics",
+            showAlert: true,
+          });
+        }
+        return { handled: true, kind: "callback" };
+      }
+
+      const topicSetMatch = callbackData.match(
+        /^rsstopicset:(\d+):([0-9a-f-]{36}):(unprocessed|ignored)$/i,
+      );
+      if (topicSetMatch) {
+        try {
+          const page = Number(topicSetMatch[1]);
+          const feedItemId = topicSetMatch[2];
+          const nextStatus = topicSetMatch[3] as "unprocessed" | "ignored";
+
+          await db
+            .update(feedItems)
+            .set({ processingStatus: nextStatus })
+            .where(eq(feedItems.id, feedItemId));
+
+          await TelegramBotService.answerCallbackQuery({
+            callbackQueryId: callback.id,
+            text: nextStatus === "ignored" ? "Ignored." : "Restored.",
+          });
+
+          await AutomationService.showTopics({
+            chatId,
+            messageId: message.message_id,
+            page,
+          });
+        } catch (err) {
+          await TelegramBotService.answerCallbackQuery({
+            callbackQueryId: callback.id,
+            text: err instanceof Error ? err.message : "Unable to update item",
+            showAlert: true,
+          });
+        }
+        return { handled: true, kind: "callback" };
+      }
+
+      const topicPickMatch = callbackData.match(/^rsstopicpick:([0-9a-f-]{36})$/i);
+      if (topicPickMatch) {
+        await AutomationService.handleTelegramTopicPicked({
+          feedItemId: topicPickMatch[1],
+          callbackQueryId: callback.id,
+          chatId,
+          messageId: message.message_id,
+        });
         return { handled: true, kind: "callback" };
       }
 
@@ -1664,6 +2082,47 @@ export class AutomationService {
                 updatedAt: new Date(),
               })
               .where(eq(blogPosts.id, session.generatedPostId));
+          }
+
+          if (action === "publish") {
+            // Best-effort: notify Next.js to refresh sitemap/rss and hub pages.
+            const [detail] = await db
+              .select({
+                slug: blogPosts.slug,
+                categorySlug: blogCategories.slug,
+              })
+              .from(blogPosts)
+              .leftJoin(blogCategories, eq(blogPosts.categoryId, blogCategories.id))
+              .where(eq(blogPosts.id, session.generatedPostId))
+              .limit(1);
+
+            const tags = await db
+              .select({ slug: blogTags.slug })
+              .from(blogPostTags)
+              .innerJoin(blogTags, eq(blogPostTags.tagId, blogTags.id))
+              .where(eq(blogPostTags.postId, session.generatedPostId));
+
+            const secondaryCategories = await db
+              .select({ slug: blogCategories.slug })
+              .from(blogPostSecondaryCategories)
+              .innerJoin(blogCategories, eq(blogPostSecondaryCategories.categoryId, blogCategories.id))
+              .where(eq(blogPostSecondaryCategories.postId, session.generatedPostId));
+
+            const paths = [
+              "/blog",
+              "/sitemap.xml",
+              "/rss.xml",
+              detail?.slug ? `/blog/${detail.slug}` : null,
+              detail?.categorySlug ? `/categories/${detail.categorySlug}` : null,
+              ...secondaryCategories.map((c) => (c.slug ? `/categories/${c.slug}` : null)),
+              ...tags.map((t) => (t.slug ? `/tags/${t.slug}` : null)),
+            ].filter(Boolean) as string[];
+
+            try {
+              await webRevalidatePaths(paths);
+            } catch {
+              // Ignore: SEO freshness is best-effort.
+            }
           }
 
           await db

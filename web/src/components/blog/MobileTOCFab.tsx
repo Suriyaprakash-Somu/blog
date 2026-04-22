@@ -10,21 +10,24 @@ type Heading = { id: string; text: string; level: number };
 type Tag = { id: string; name: string; slug: string };
 type SecondaryCategory = { id: string; name: string; slug: string };
 type PopularPost = { slug: string; title: string; views?: number; isPinned?: boolean; isFeatured?: boolean };
+type RelatedPost = { slug: string; title: string };
 
 export function MobileTOCFab({
     headings = [],
     tags = [],
     secondaryCategories = [],
     popularPosts = [],
+    relatedPosts = [],
 }: {
     headings?: Heading[];
     tags?: Tag[];
     secondaryCategories?: SecondaryCategory[];
     popularPosts?: PopularPost[];
+    relatedPosts?: RelatedPost[];
 }) {
     const [open, setOpen] = useState(false);
     const [activeId, setActiveId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<"toc" | "categories" | "popular">("toc");
+    const [activeTab, setActiveTab] = useState<"toc" | "categories" | "related" | "popular">("toc");
     const panelRef = useRef<HTMLDivElement>(null);
 
     const ids = useMemo(() => headings.map((h) => h.id), [headings]);
@@ -84,10 +87,31 @@ export function MobileTOCFab({
 
     const hasTOC = headings.length > 0;
     const hasPopular = popularPosts.length > 0;
+    const hasRelated = relatedPosts.length > 0;
     const hasTags = tags.length > 0;
     const hasSecondaryCategories = secondaryCategories.length > 0;
 
-    if (!hasTOC && !hasPopular && !hasTags && !hasSecondaryCategories) return null;
+    if (!hasTOC && !hasPopular && !hasRelated && !hasTags && !hasSecondaryCategories) return null;
+
+    useEffect(() => {
+        // Prefer starting on Related when available.
+        if (!open) return;
+        if (hasRelated) {
+            setActiveTab("related");
+            return;
+        }
+        if (hasTOC) {
+            setActiveTab("toc");
+            return;
+        }
+        if (hasSecondaryCategories || hasTags) {
+            setActiveTab("categories");
+            return;
+        }
+        if (hasPopular) {
+            setActiveTab("popular");
+        }
+    }, [open, hasRelated, hasTOC, hasSecondaryCategories, hasTags, hasPopular]);
 
     return (
         <div className="lg:hidden">
@@ -146,6 +170,20 @@ export function MobileTOCFab({
                                 {hasSecondaryCategories && hasTags ? "Categories & Tags" : hasSecondaryCategories ? "Categories" : "Tags"}
                             </button>
                         ) : null}
+                        {hasRelated && (
+                            <button
+                                onClick={() => setActiveTab("related")}
+                                className={cn(
+                                    "text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-full transition-colors whitespace-nowrap font-medium",
+                                    activeTab === "related"
+                                        ? "bg-primary text-primary-foreground shadow-sm"
+                                        : "text-muted-foreground hover:bg-muted/80"
+                                )}
+                            >
+                                Related
+                            </button>
+                        )}
+
                         {hasPopular && (
                             <button
                                 onClick={() => setActiveTab("popular")}
@@ -250,6 +288,30 @@ export function MobileTOCFab({
                                             className="block"
                                         >
                                             <h4 className="text-sm font-medium leading-tight group-hover:text-primary transition-colors line-clamp-2 mb-1">
+                                                {post.title}
+                                            </h4>
+                                        </Link>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    {/* Related Section */}
+                    {activeTab === "related" && hasRelated && (
+                        <div>
+                            <h3 className="text-[10px] uppercase tracking-wider font-bold mb-3 text-muted-foreground/80">
+                                Related
+                            </h3>
+                            <ul className="space-y-3">
+                                {relatedPosts.map((post, i) => (
+                                    <li key={i} className="group border-b border-border/30 pb-3 last:border-0 last:pb-0">
+                                        <Link
+                                            href={`/blog/${post.slug}`}
+                                            onClick={onLinkClick}
+                                            className="block"
+                                        >
+                                            <h4 className="text-sm font-medium leading-tight group-hover:text-primary transition-colors line-clamp-2">
                                                 {post.title}
                                             </h4>
                                         </Link>

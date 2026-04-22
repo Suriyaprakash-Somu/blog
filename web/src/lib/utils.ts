@@ -74,7 +74,7 @@ export function getPublicImageUrl(storageKey: string | null): string | null {
   if (storageKey.startsWith("http://") || storageKey.startsWith("https://")) {
     return storageKey;
   }
-  const apiBase = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3005";
+  const apiBase = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3020";
   const fileId = storageKey.split(".")[0];
   return `${apiBase}/api/uploads/${fileId}/content`;
 }

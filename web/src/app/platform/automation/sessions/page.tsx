@@ -39,6 +39,8 @@ import {
   Eye,
 } from "lucide-react";
 import { format } from "date-fns";
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
 
 interface AutomationSession {
   id: string;
@@ -158,7 +160,10 @@ export default function AutomationSessionsPage() {
                   Track automation sessions from topic selection to final draft assignment
                 </CardDescription>
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select
+                value={statusFilter}
+                onValueChange={(v) => setStatusFilter(v ?? "all")}
+              >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
@@ -280,16 +285,15 @@ export default function AutomationSessionsPage() {
                         <TableCell>
                           <div className="flex gap-2">
                             {session.post ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                asChild
+                              <Link
+                                href="/platform/blog-posts"
+                                className={buttonVariants({ variant: "ghost", size: "sm" })}
                               >
-                                <a href={`/platform/blog-posts`} className="flex items-center gap-1">
+                                <span className="flex items-center gap-1">
                                   <Eye className="h-4 w-4" />
                                   View
-                                </a>
-                              </Button>
+                                </span>
+                              </Link>
                             ) : session.status === "failed" ? (
                               <Badge variant="destructive" className="text-xs">
                                 <AlertTriangle className="h-3 w-3 mr-1" />

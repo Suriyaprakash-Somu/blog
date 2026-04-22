@@ -188,6 +188,29 @@ export const MODULE_POLICIES: ModulePolicy[] = [
     },
   },
 
+  {
+    moduleKey: "platform.feedItems",
+    scope: "platform",
+    subject: SUBJECTS.PLATFORM_SETTINGS,
+    routeBase: "/platform/automation/feed-items",
+    navigation: {
+      title: "RSS Items",
+      path: "/platform/automation/feed-items",
+      iconKey: "clipboard-list",
+      section: "Content",
+      order: 6,
+      visibleWhen: { action: ACTIONS.DISPLAY_LINK, subject: SUBJECTS.PLATFORM_SETTINGS },
+    },
+    crud: {
+      key: "feedItems",
+      mode: "platform",
+      tenantScope: false,
+      operations: {
+        list: { action: ACTIONS.READ, subject: SUBJECTS.PLATFORM_SETTINGS },
+      },
+    },
+  },
+
   // --- Audience ---
   {
     moduleKey: "platform.newsletter",

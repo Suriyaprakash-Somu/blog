@@ -8,17 +8,20 @@ type Heading = { id: string; text: string; level: number };
 type Tag = { id: string; name: string; slug: string };
 type SecondaryCategory = { id: string; name: string; slug: string };
 type PopularPost = { slug: string; title: string };
+type RelatedPost = { slug: string; title: string };
 
 export function DesktopSidebar({
     headings = [],
     tags = [],
     secondaryCategories = [],
     popularPosts = [],
+    relatedPosts = [],
 }: {
     headings?: Heading[];
     tags?: Tag[];
     secondaryCategories?: SecondaryCategory[];
     popularPosts?: PopularPost[];
+    relatedPosts?: RelatedPost[];
 }) {
     const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -62,10 +65,11 @@ export function DesktopSidebar({
 
     const hasTOC = headings.length > 0;
     const hasPopular = popularPosts.length > 0;
+    const hasRelated = relatedPosts.length > 0;
     const hasTags = tags.length > 0;
     const hasSecondaryCategories = secondaryCategories.length > 0;
 
-    if (!hasTOC && !hasPopular && !hasTags && !hasSecondaryCategories) return null;
+    if (!hasTOC && !hasPopular && !hasRelated && !hasTags && !hasSecondaryCategories) return null;
 
     return (
         <aside className="sticky top-24 hidden lg:flex flex-col gap-8 max-h-[calc(100vh-8rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent pr-2 pb-8">
@@ -140,6 +144,26 @@ export function DesktopSidebar({
                             </Link>
                         ))}
                     </div>
+                </div>
+            )}
+
+            {/* Popular Posts */}
+            {hasRelated && (
+                <div className="px-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-4">
+                        Related Posts
+                    </h3>
+                    <ul className="space-y-4">
+                        {relatedPosts.map((post, i) => (
+                            <li key={i} className="group">
+                                <Link href={`/blog/${post.slug}`} className="block">
+                                    <h4 className="text-sm font-medium leading-tight group-hover:text-primary transition-colors line-clamp-2">
+                                        {post.title}
+                                    </h4>
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
             )}
 

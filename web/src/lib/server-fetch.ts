@@ -19,7 +19,7 @@ export async function serverFetch<T>(
   options: FetchOptions = {}
 ): Promise<T> {
   const baseUrl =
-    process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3005";
+    process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3020";
 
   const headers = new Headers(options.headers ?? {});
   const forwardAuth = process.env.NEXT_SERVER_FETCH_FORWARD_AUTH === "true";

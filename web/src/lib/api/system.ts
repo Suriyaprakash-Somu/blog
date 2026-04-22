@@ -5,7 +5,7 @@ import { normalizeHeaders } from "../fetch-core";
  * Triggers a database backup download
  */
 export async function downloadBackup(): Promise<void> {
-  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3005";
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3020";
   const url = `${baseUrl}/api/platform/system/backup`;
   
   // We need to use native fetch for Blobs because fetchCore is hardcoded for JSON
